@@ -85,6 +85,13 @@ static inline unsigned int get_sec(unsigned int cluster)
 	return ((cluster - 2) * fat->BPB_SecPerClus) + FirstDataSector;
 }
 
+void read_content(unsigned int clus)
+{
+	unsigned int sector = get_sec(clus);
+	unsigned char *text = buf+sector*512;
+	printf("%s", text);
+}
+
 void read_file()
 {
 	unsigned int datasec = get_sec(2);
@@ -95,8 +102,9 @@ void read_file()
 		if (dir->DIR_Name[0] == 0)
 			break;
 		printf("Filename: %s\n", dir->DIR_Name);
-		printf("Sec: %d\n", (dir->DIR_FstClusHI << 16 | dir->DIR_FstClusLO));
+		unsigned int clus = (dir->DIR_FstClusHI << 16 | dir->DIR_FstClusLO);
 		printf("Size: %d\n", dir->DIR_FileSize);
+		read_content(clus);
 		++dir;
 	}
 }
