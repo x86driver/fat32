@@ -54,6 +54,10 @@ static inline unsigned int find_first_partition()
 }
 
 struct FAT32 *fat;
+unsigned int FATSz;
+unsigned int fat_table;
+unsigned int RootDirSectors;
+unsigned int FirstDataSector;
 
 void get_fat_info(unsigned int fat32_sec)
 {
@@ -62,21 +66,29 @@ void get_fat_info(unsigned int fat32_sec)
 	printf("size: %d\n", fat->BPB_BytsPerSec);
 }
 
-void read_file()
+void init_fat()
 {
-	unsigned int fat_alloc_table = find_first_partition();
-	get_fat_info(fat_alloc_table);
-	unsigned int RootDirSectors = (fat_alloc_table) + ((fat->BPB_RootEntCnt*32)+(fat->BPB_BytsPerSec-1))/fat->BPB_BytsPerSec;
-	unsigned int FATSz;
+        fat_table = find_first_partition();
+        get_fat_info(fat_table);
+
         if (fat->BPB_FATSz16 != 0)
                 FATSz = fat->BPB_FATSz16;
         else
                 FATSz = fat->BPB_FATSz32;
 
-        unsigned int NextClus = 2;
-        unsigned int DataSec = ((NextClus-2)*fat->BPB_SecPerClus)+fat->BPB_ResvdSecCnt+(fat->BPB_NumFATs * FATSz)
-                                + RootDirSectors;
-	struct dir_entry *dir = (struct dir_entry*)(buf+(DataSec*512));
+        RootDirSectors = (fat_table) + ((fat->BPB_RootEntCnt*32)+(fat->BPB_BytsPerSec-1))/fat->BPB_BytsPerSec;
+        FirstDataSector = fat->BPB_ResvdSecCnt+(fat->BPB_NumFATs * FATSz) + RootDirSectors;
+}
+
+static inline unsigned int get_sec(unsigned int cluster)
+{
+	return ((cluster - 2) * fat->BPB_SecPerClus) + FirstDataSector;
+}
+
+void read_file()
+{
+	unsigned int datasec = get_sec(2);
+	struct dir_entry *dir = (struct dir_entry*)(buf+(datasec*512));
 	unsigned int i = 0;
 
 	for (; i < 16; ++i) {
@@ -105,6 +117,7 @@ int main()
 		exit(1);
 	}
 
+	init_fat();
 	read_file();
 
 	munmap(buf, st.st_size);
