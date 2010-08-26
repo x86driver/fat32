@@ -2,7 +2,7 @@ TARGET = read
 
 all: $(TARGET)
 
-read:read.c
+read:read.c fat32.h
 	gcc -Wall -o $@ $< -g
 
 
