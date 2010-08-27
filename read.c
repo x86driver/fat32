@@ -112,6 +112,50 @@ void list_all_cluster(unsigned int first_clus)
 	printf("end\n");
 }
 
+void dump_file(unsigned int first_clus, unsigned int size)
+{
+	FILE *fp = fopen("e.dat", "wb");
+	unsigned int next_clus = first_clus;
+	unsigned char *ptr;
+        if (size <= 4096) {
+		ptr = buf + get_sec(next_clus) * SECTOR_SIZE;
+                fwrite(ptr, size, 1, fp);
+		fclose(fp);
+		return;
+	}
+
+	do {
+		ptr = buf + get_sec(next_clus) * SECTOR_SIZE;
+		fwrite(ptr, 4096, 1, fp);
+		size -= 4096;
+		next_clus = find_next_cluster(next_clus);
+	} while (size >=4096 && next_clus != 0x0FFFFFFF);
+
+	ptr = buf + get_sec(next_clus) * SECTOR_SIZE;
+	fwrite(ptr, size, 1, fp);
+	fclose(fp);
+}
+
+void fmtfname(char *dst, const char *src)
+{
+//format file name to 8 3 (DOS)
+//WARNING: make sure 'dst' must allocated 11 bytes
+// and filled with 0x20 (space)
+
+	int count = 0;
+	while (1) {
+        	if (*src == '.') {
+        		dst += 8-count;
+	        	++src;
+        		continue;
+        	} else if (*src == '\0')
+        		break;
+
+	        *dst++ = *src++;
+        	++count;
+	}
+}
+
 void read_file()
 {
 	unsigned int datasec = get_sec(2);
@@ -125,7 +169,8 @@ void read_file()
 		unsigned int clus = (dir->DIR_FstClusHI << 16 | dir->DIR_FstClusLO);
 		printf("Size: %d\n", dir->DIR_FileSize);
 		printf("Data cluster: %d\n", clus);
-		list_all_cluster(clus);
+		if (dir->DIR_Name[0] == 'E')
+			dump_file(clus, dir->DIR_FileSize);
 //		read_content(clus);
 		++dir;
 	}

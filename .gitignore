@@ -2,3 +2,5 @@ fat
 read
 *.iso
 *.img
+*.txt
+*.dat
