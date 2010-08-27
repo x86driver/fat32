@@ -169,9 +169,8 @@ void read_file()
 		unsigned int clus = (dir->DIR_FstClusHI << 16 | dir->DIR_FstClusLO);
 		printf("Size: %d\n", dir->DIR_FileSize);
 		printf("Data cluster: %d\n", clus);
-		if (dir->DIR_Name[0] == 'E')
-			dump_file(clus, dir->DIR_FileSize);
-//		read_content(clus);
+//		if (dir->DIR_Name[0] == 'E')
+//			dump_file(clus, dir->DIR_FileSize);
 		++dir;
 	}
 }
