@@ -161,11 +161,20 @@ void read_file()
 	unsigned int datasec = get_sec(2);
 	struct dir_entry *dir = (struct dir_entry*)(buf+(datasec*SECTOR_SIZE));
 	unsigned int i = 0;
+	unsigned int long_flag = 0;
 
 	for (; i < 16; ++i) {
 		if (dir->DIR_Name[0] == 0)
 			break;
-		printf("Filename: %s\n", dir->DIR_Name);
+		if (long_flag == 1) {
+			printf("Filename: %s (It has long name)\n", dir->DIR_Name);
+			long_flag = 0;
+		}
+		if (dir->DIR_Attr == 0x0f) {
+			long_flag = 1;
+			continue;
+		} else
+			printf("Filename: %s\n", dir->DIR_Name);
 		unsigned int clus = (dir->DIR_FstClusHI << 16 | dir->DIR_FstClusLO);
 		printf("Size: %d\n", dir->DIR_FileSize);
 		printf("Data cluster: %d\n", clus);
