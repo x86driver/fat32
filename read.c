@@ -5,10 +5,13 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include "fat32.h"
 
 #define SECTOR_SIZE 512
 
+unsigned char *cache;
+unsigned char *cache512;
 unsigned char *buf;
 
 struct Partition {
@@ -23,14 +26,6 @@ struct Partition {
 	unsigned int startlba;
 	unsigned int totalsec;
 };
-
-/*
-void read_sec(unsigned int lba)
-{
-	lseek(fd, lba*SECTOR_SIZE, SEEK_SET);
-	read(fd, (void*)&sector[0], SECTOR_SIZE);
-}
-*/
 
 static inline unsigned int find_first_partition()
 {
@@ -65,6 +60,8 @@ unsigned int FirstDataSector;
 void get_fat_info(unsigned int fat32_sec)
 {
 	fat = (struct FAT32*)(buf+(fat32_sec*SECTOR_SIZE));
+//	unsigned char *ptr = read_sec(fat32_sec);
+//	memcpy((void*)&fat, ptr, sizeof(fat));
 	printf("%s\n", fat->BS_OEMName);
 	printf("size: %d\n", fat->BPB_BytsPerSec);
 }
@@ -93,6 +90,29 @@ unsigned int find_next_cluster(unsigned int currentry)
 {
 	unsigned int cluster = *(unsigned int*)(buf + (FirstFatSector * SECTOR_SIZE + currentry * 4));
 	return cluster;
+}
+
+/* Usage:
+ * buf = read_sec(xxx);
+ * Beware size of buf is 512
+ */
+unsigned char *read_sec(unsigned int sector)
+{
+	memset(cache, 0, 4096);
+	unsigned char *ptr = buf + sector * SECTOR_SIZE;
+	memcpy(cache512, ptr, 512);
+	return cache512;
+}
+
+/* Usage:
+ * buf = read_clus(xxx);
+ */
+unsigned char *read_clus(unsigned int clus)
+{
+        unsigned int sector = get_sec(clus);
+        unsigned char *ptr = buf + sector * SECTOR_SIZE;
+        memcpy(cache, ptr, 4096);
+	return cache;
 }
 
 void read_content(unsigned int clus)
@@ -158,23 +178,32 @@ void fmtfname(char *dst, const char *src)
 
 void read_file()
 {
-	unsigned int datasec = get_sec(2);
-	struct dir_entry *dir = (struct dir_entry*)(buf+(datasec*SECTOR_SIZE));
+//	unsigned int datasec = get_sec(2);
+//	struct dir_entry *dir = (struct dir_entry*)(buf+(datasec*SECTOR_SIZE));
+	struct dir_entry *dir = (struct dir_entry*)read_clus(2);
 	unsigned int i = 0;
 	unsigned int long_flag = 0;
 
 	for (; i < 16; ++i) {
-		if (dir->DIR_Name[0] == 0)
+		if (dir->DIR_Name[0] == 0)	/* no more files */
 			break;
-		if (long_flag == 1) {
-			printf("Filename: %s (It has long name)\n", dir->DIR_Name);
-			long_flag = 0;
-		}
-		if (dir->DIR_Attr == 0x0f) {
-			long_flag = 1;
+		if (dir->DIR_Name[0] == 0xe5) {	/* deleted file */
+			++dir;
 			continue;
-		} else
-			printf("Filename: %s\n", dir->DIR_Name);
+		}
+		if (dir->DIR_Attr == 0x0f) {	/* subcomponent long name */
+			long_flag = 1;
+			++dir;
+			continue;
+		} else {
+			if (long_flag == 0)
+				printf("Filename: %s\n", dir->DIR_Name);
+			else {
+				printf("Filename: %s (It has long name)\n", dir->DIR_Name);
+				long_flag = 0;
+			}
+		}
+
 		unsigned int clus = (dir->DIR_FstClusHI << 16 | dir->DIR_FstClusLO);
 		printf("Size: %d\n", dir->DIR_FileSize);
 		printf("Data cluster: %d\n", clus);
@@ -194,6 +223,9 @@ int main()
 	struct stat st;
 	fstat(fd, &st);
 
+	cache = malloc(4096);
+	cache512 = malloc(512);
+
 	buf = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
 	if ((char*)buf == MAP_FAILED) {
 		perror("mmap");
@@ -203,6 +235,8 @@ int main()
 	init_fat();
 	read_file();
 
+	free(cache);
+	free(cache512);
 	munmap(buf, st.st_size);
 	close(fd);
 
