@@ -27,29 +27,6 @@ struct Partition {
 	unsigned int totalsec;
 };
 
-static inline unsigned int find_first_partition()
-{
-	struct Partition *partition = (struct Partition*)(buf+0x1be);
-	return partition->startlba;
-#if 0
-	unsigned int i = 0;
-	for (; i < 4; ++i) {
-		printf("Partition #%d\n", i);
-		printf("status: 0x%x\n", partition->status);
-		printf("Start head: %d, sector: %d, cylinder: %d\n",
-			partition->head, partition->sector, partition->cylinder);
-		printf("type: 0x%x\n", partition->type);
-		printf("End head: %d, sector: %d, cylinder: %d\n",
-			partition->endhead, partition->endsector, partition->endcylinder);
-		printf("LBA Start: %d, total: %d, size: %d (%d)\n\n",
-			partition->startlba, partition->totalsec,
-			partition->totalsec*SECTOR_SIZE, (partition->totalsec*SECTOR_SIZE)/1048576);
-		printf("===============================================\n\n");
-		partition += sizeof(struct Partition);
-	}
-#endif
-}
-
 struct FAT32 fat;
 unsigned int FATSz;
 unsigned int fat_table;
@@ -91,9 +68,16 @@ unsigned char *read_clus(unsigned int clus)
 	return cache;
 }
 
+static inline unsigned int find_first_partition()
+{
+	unsigned char partbuf[512];
+	unsigned char *ptr = 
+        struct Partition *partition = (struct Partition*)(buf+0x1be);
+        return partition->startlba;
+}
+
 void get_fat_info(unsigned int fat32_sec)
 {
-//      fat = (struct FAT32*)(buf+(fat32_sec*SECTOR_SIZE));
         unsigned char *ptr = read_sec(fat32_sec);
         memcpy((void*)&fat, ptr, sizeof(fat));
         printf("%s\n", fat.BS_OEMName);
