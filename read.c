@@ -50,40 +50,16 @@ static inline unsigned int find_first_partition()
 #endif
 }
 
-struct FAT32 *fat;
+struct FAT32 fat;
 unsigned int FATSz;
 unsigned int fat_table;
 unsigned int RootDirSectors;
 unsigned int FirstFatSector;
 unsigned int FirstDataSector;
 
-void get_fat_info(unsigned int fat32_sec)
-{
-	fat = (struct FAT32*)(buf+(fat32_sec*SECTOR_SIZE));
-//	unsigned char *ptr = read_sec(fat32_sec);
-//	memcpy((void*)&fat, ptr, sizeof(fat));
-	printf("%s\n", fat->BS_OEMName);
-	printf("size: %d\n", fat->BPB_BytsPerSec);
-}
-
-void init_fat()
-{
-        fat_table = find_first_partition();
-        get_fat_info(fat_table);
-
-        if (fat->BPB_FATSz16 != 0)
-                FATSz = fat->BPB_FATSz16;
-        else
-                FATSz = fat->BPB_FATSz32;
-
-        RootDirSectors = (fat_table) + ((fat->BPB_RootEntCnt*32)+(fat->BPB_BytsPerSec-1))/fat->BPB_BytsPerSec;
-	FirstFatSector = fat_table + fat->BPB_ResvdSecCnt;
-        FirstDataSector = fat->BPB_ResvdSecCnt+(fat->BPB_NumFATs * FATSz) + RootDirSectors;
-}
-
 static inline unsigned int get_sec(unsigned int cluster)
 {
-        return ((cluster - 2) * fat->BPB_SecPerClus) + FirstDataSector;
+        return ((cluster - 2) * fat.BPB_SecPerClus) + FirstDataSector;
 }
 
 unsigned int find_next_cluster(unsigned int currentry)
@@ -113,6 +89,30 @@ unsigned char *read_clus(unsigned int clus)
         unsigned char *ptr = buf + sector * SECTOR_SIZE;
         memcpy(cache, ptr, 4096);
 	return cache;
+}
+
+void get_fat_info(unsigned int fat32_sec)
+{
+//      fat = (struct FAT32*)(buf+(fat32_sec*SECTOR_SIZE));
+        unsigned char *ptr = read_sec(fat32_sec);
+        memcpy((void*)&fat, ptr, sizeof(fat));
+        printf("%s\n", fat.BS_OEMName);
+        printf("size: %d\n", fat.BPB_BytsPerSec);
+}
+
+void init_fat()
+{
+        fat_table = find_first_partition();
+        get_fat_info(fat_table);
+
+        if (fat.BPB_FATSz16 != 0)
+                FATSz = fat.BPB_FATSz16;
+        else
+                FATSz = fat.BPB_FATSz32;
+
+        RootDirSectors = (fat_table) + ((fat.BPB_RootEntCnt*32)+(fat.BPB_BytsPerSec-1))/fat.BPB_BytsPerSec;
+        FirstFatSector = fat_table + fat.BPB_ResvdSecCnt;
+        FirstDataSector = fat.BPB_ResvdSecCnt+(fat.BPB_NumFATs * FATSz) + RootDirSectors;
 }
 
 void read_content(unsigned int clus)
