@@ -33,20 +33,43 @@ struct FAT32 {
   char bootsig[2];
 } __attribute__((packed));
 
-struct dir_entry{
-  char DIR_Name[11];
-  char DIR_Attr;
-  char DIR_NTRes;
-  char DIR_CrtTimeTenth;
-  short DIR_CrtTime;
-  short DIR_CrtDate;
-  short DIR_LstAccDate;
-  short DIR_FstClusHI;
-  short DIR_WrtTime;
-  short DIR_WrtDate;
-  short DIR_FstClusLO;
-  unsigned int DIR_FileSize;
+#define MSDOS_NAME      11
+
+struct dir_entry {
+        unsigned char   name[MSDOS_NAME];/* name and extension */
+        unsigned char   attr;           /* attribute bits */
+        unsigned char   lcase;          /* Case for base and extension */
+        unsigned char   ctime_cs;       /* Creation time, centiseconds (0-199) */
+        unsigned short  ctime;          /* Creation time */
+        unsigned short  cdate;          /* Creation date */
+        unsigned short  adate;          /* Last access date */
+        unsigned short  starthi;        /* High 16 bits of cluster in FAT32 */
+        unsigned short  time,date,start;/* time, date and first cluster */
+        unsigned int    size;           /* file size (in bytes) */
 } __attribute__((packed));
 
+struct dir_long_entry {
+        unsigned char    id;             /* sequence number for slot */
+        unsigned char    name0_4[10];    /* first 5 characters in name */
+        unsigned char    attr;           /* attribute byte */
+        unsigned char    reserved;       /* always 0 */
+        unsigned char    alias_checksum; /* checksum for 8.3 alias */
+        unsigned char    name5_10[12];   /* 6 more characters in name */
+        unsigned short   start;         /* starting cluster number, 0 in long slots */
+        unsigned char    name11_12[4];   /* last 2 characters in name */
+};
+
+struct Partition {
+        unsigned char status;
+        unsigned char head;
+        unsigned char sector;
+        unsigned char cylinder;
+        unsigned char type;
+        unsigned char endhead;
+        unsigned char endsector;
+        unsigned char endcylinder;
+        unsigned int startlba;
+        unsigned int totalsec;
+};
 
 #endif

@@ -14,19 +14,6 @@ unsigned char *cache;
 unsigned char *cache512;
 unsigned char *buf;
 
-struct Partition {
-	unsigned char status;
-	unsigned char head;
-	unsigned char sector;
-	unsigned char cylinder;
-	unsigned char type;
-	unsigned char endhead;
-	unsigned char endsector;
-	unsigned char endcylinder;
-	unsigned int startlba;
-	unsigned int totalsec;
-};
-
 struct FAT32 fat;
 unsigned int FATSz;
 unsigned int fat_table;
@@ -70,8 +57,6 @@ unsigned char *read_clus(unsigned int clus)
 
 static inline unsigned int find_first_partition()
 {
-	unsigned char partbuf[512];
-	unsigned char *ptr = 
         struct Partition *partition = (struct Partition*)(buf+0x1be);
         return partition->startlba;
 }
@@ -160,6 +145,66 @@ void fmtfname(char *dst, const char *src)
 	}
 }
 
+unsigned char *entry_buf = NULL;
+void fat_get_entry(struct dir_entry **de)
+{
+	if (*de) {
+		(*de)++;
+		return;
+	}
+	entry_buf = read_clus(2);
+	*de = (struct dir_entry*)entry_buf;
+}
+
+void namecpy(char *dst, const unsigned char *src, int len)
+{
+	while (len--) {
+		*dst++ = *src++;
+		++src;
+	}
+}
+
+int fat_parse_long(struct dir_entry **de)
+{
+	char filename[260];
+	unsigned char slot;
+	struct dir_long_entry *dle = (struct dir_long_entry*)*de;
+	if (!(dle->id & 0x40)) {
+		printf("Parse error!");
+		return -1;
+	}
+
+	/* 開始 parse 直到 id = 1 */
+	while (1) {
+		slot = dle->id;
+		namecpy(filename + slot * 13, dle->name0_4, 5);
+		namecpy(filename + slot * 13 + 5, dle->name5_10, 6);
+		namecpy(filename + slot * 13 + 11, dle->name11_12, 2);
+	}
+}
+
+int vfat_find(char *fname)
+{
+	struct dir_entry *de = NULL;
+
+	while (1) {
+		fat_get_entry(&de);
+		if (de->name[0] == 0xe5)
+			continue;
+		if (de->name[0] == 0x0)
+			continue;
+		if (de->attr == 0x0f) {
+			fat_parse_long(&de);
+		}
+	}
+}
+
+void test_func()
+{
+	vfat_find("Thisisa_longfile.mydata.ok");
+}
+
+#if 0
 void read_file()
 {
 //	unsigned int datasec = get_sec(2);
@@ -196,6 +241,7 @@ void read_file()
 		++dir;
 	}
 }
+#endif
 
 int main()
 {
@@ -217,7 +263,7 @@ int main()
 	}
 
 	init_fat();
-	read_file();
+	test_func();
 
 	free(cache);
 	free(cache512);
