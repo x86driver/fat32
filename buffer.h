@@ -1,5 +1,23 @@
+#include "mm.h"
+
 struct buffer_head {
 	char *b_data;
+};
+
+struct bio_vec {
+	unsigned int start_sector;
+	unsigned int size;		/* aligned 512 bytes */
+	struct page *page;		/* pointer to the page */
+};
+
+/* 會存放一個向量 */
+struct bio {
+	unsigned int bio_cnt;		/* count of bio_io_vec */
+	unsigned int index;
+	struct bio_vec *iovec;
+	struct bio_vec *iovec_tail;
+	int stream;
+	unsigned int addr;
 };
 
 void brelse(struct buffer_head *bh);

@@ -59,6 +59,9 @@ struct dir_long_entry {
         unsigned char    name11_12[4];   /* last 2 characters in name */
 };
 
+struct inode {
+};
+
 struct Partition {
         unsigned char status;
         unsigned char head;
@@ -71,5 +74,42 @@ struct Partition {
         unsigned int startlba;
         unsigned int totalsec;
 };
+
+struct msdos_sb {
+	unsigned int sec_per_clus;
+	unsigned int root_sec;
+	unsigned int first_fat_sec;
+	unsigned int first_data_sec;
+};
+
+extern struct FAT32 fat;
+extern unsigned int fat_table;
+
+static inline unsigned int fat_get_sec(unsigned int cluster)
+{
+        return ((cluster - 2) * dosb.sec_per_clus) + dosb.first_data_sec;
+}
+
+static inline unsigned int fat_next_cluster(unsigned int currentry)
+{
+	/* 流程:
+	 * 1. 取得 currentry 所在的 cluster
+	 * 2. 找到下一個 entry
+	 * ☯注意： 這裡不論如何只需要讀取一次 cluster,
+	 *         不需要讀取下一個 cluster, 因為我們只是把找到的
+	 *         cluster 回傳就好
+	 * 『注意』： 目前尚未完成這個函式, 因為要用 bread 去讀
+	 */
+	unsigned int cluster = *(unsigned int*)(buf + (FirstFatSector * SECTOR_SIZE + currentry * 4));
+	return cluster;
+}
+
+static inline void namecpy(char *dst, const unsigned char *src, int len)
+{
+	while (len--) {
+		*dst++ = *src++;
+		++src;
+	}
+}
 
 #endif

@@ -17,23 +17,7 @@ unsigned char *cache512;
 unsigned char *buf;
 
 struct FAT32 fat;
-unsigned int FATSz;
-unsigned int fat_table;
-unsigned int RootDirSectors;
-unsigned int FirstFatSector;
-unsigned int FirstDataSector;
 struct super_block *sb;
-
-static inline unsigned int get_sec(unsigned int cluster)
-{
-        return ((cluster - 2) * fat.BPB_SecPerClus) + FirstDataSector;
-}
-
-unsigned int find_next_cluster(unsigned int currentry)
-{
-	unsigned int cluster = *(unsigned int*)(buf + (FirstFatSector * SECTOR_SIZE + currentry * 4));
-	return cluster;
-}
 
 /* Usage:
  * buf = read_sec(xxx);
@@ -64,36 +48,11 @@ static inline unsigned int find_first_partition()
         return partition->startlba;
 }
 
-void init_fat()
-{
-        fat_table = find_first_partition();
-        get_fat_info(fat_table);
-
-        if (fat.BPB_FATSz16 != 0)
-                FATSz = fat.BPB_FATSz16;
-        else
-                FATSz = fat.BPB_FATSz32;
-
-        RootDirSectors = (fat_table) + ((fat.BPB_RootEntCnt*32)+(fat.BPB_BytsPerSec-1))/fat.BPB_BytsPerSec;
-        FirstFatSector = fat_table + fat.BPB_ResvdSecCnt;
-        FirstDataSector = fat.BPB_ResvdSecCnt+(fat.BPB_NumFATs * FATSz) + RootDirSectors;
-}
-
 void read_content(unsigned int clus)
 {
 	unsigned int sector = get_sec(clus);
 	unsigned char *text = buf+sector*SECTOR_SIZE;
 	printf("%s", text);
-}
-
-void list_all_cluster(unsigned int first_clus)
-{
-	unsigned int next_clus = first_clus;
-	do {
-		printf("%d -> ", next_clus);
-		next_clus = find_next_cluster(next_clus);
-	} while (next_clus != 0x0FFFFFFF);
-	printf("end\n");
 }
 
 void dump_file(unsigned int first_clus, unsigned int size)
@@ -140,14 +99,6 @@ void fmtfname(char *dst, const char *src)
 	}
 }
 
-void namecpy(char *dst, const unsigned char *src, int len)
-{
-	while (len--) {
-		*dst++ = *src++;
-		++src;
-	}
-}
-
 void test_func()
 {
 	vfat_find("Thisisa_longfile.mydata.ok");
@@ -191,11 +142,6 @@ void read_file()
 	}
 }
 #endif
-
-void init_superblock()
-{
-	sb->dir_clus = 2;
-}
 
 int main()
 {
