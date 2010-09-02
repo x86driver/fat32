@@ -59,10 +59,6 @@ struct dir_long_entry {
         unsigned char    name11_12[4];   /* last 2 characters in name */
 };
 
-struct super_block {
-	unsigned int dir_clus;
-};
-
 struct Partition {
         unsigned char status;
         unsigned char head;
