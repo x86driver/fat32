@@ -37,6 +37,9 @@ void list_all_cluster(unsigned int first_clus)
 	printf("end\n");
 }
 
+//注意, 以下全部先註解
+#if 0
+
 /* 傳回指向 cluster 的 pointer
  * 要做的事情:
  * 1. 算出"相對於"該 partition 的 sector
@@ -106,3 +109,6 @@ int vfat_find(char *fname)
 		}
 	}
 }
+
+#endif
+
