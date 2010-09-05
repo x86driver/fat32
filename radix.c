@@ -3,7 +3,7 @@
 #include "radix.h"
 #include "mm.h"
 
-static struct radix_tree *radix;
+struct radix_tree *radix;
 
 /* 問題
  * 一般讀資料時 我們都不用把他存在 buffer (用 direct_read)
@@ -33,12 +33,12 @@ struct address_space *find_or_create(struct radix_tree * restrict radix,
 	lv1_node = radix->next[cluster >> 7];
 	lv2_node = lv1_node->next[cluster & 0x07f];
 	if (lv2_node != NULL) {
-		*create = 0;
+		*create = FIND_NODE;
 		return (struct address_space*)lv2_node;
 	} else { //第一層有找到 但第二層沒找到
 		struct address_space *addr = alloc_address_space();
 		addr->cluster = cluster;
-		*create = 1;
+		*create = NEW_NODE;
 		lv1_node->next[cluster & 0x07f] = (struct radix_tree*)addr;
 		return addr;
 	}
@@ -56,13 +56,14 @@ void init_radix_tree()
 	}
 }
 
-void lookup(unsigned int cluster)
+void lookup2(unsigned int cluster)
 {
 	struct address_space *addr;
 	int create = 0;
 	char buf[64];
-        addr = find_or_create(radix, cluster, &create);
-        if (create == 0) {
+//	addr = find_or_create(radix, cluster, &create);
+	addr = lookup(cluster, &create);
+        if (create == FIND_NODE) {
                 printf("Cluster %d: %s\n", cluster, (char*)addr->data);
         } else {
 		printf("New node(%d), add something!\n", cluster);
@@ -78,10 +79,10 @@ int main()
 	init_radix_tree();
 	int i;
 	for (i = 0; i < 16384; ++i) {
-		lookup(i);
+		lookup2(i);
 	}
 	for (i = 0; i < 16384; ++i) {
-		lookup(i);
+		lookup2(i);
 	}
 	return 0;
 }

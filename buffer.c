@@ -2,6 +2,11 @@
 #include "buffer.h"
 
 extern unsigned char *buf;
+/* 我們只有讀取 FAT32 需要 buffer
+ * 而同時間也只會有一個讀取的 request
+ * 所以這裡用一個靜態 buffer_head 來處理
+ */
+static struct buffer_head bh;
 
 /* bread 流程:
  * 流程應該是當上層呼叫 bread 後, 會開始建構 buffer_head
@@ -126,7 +131,38 @@ struct buffer_head *__bread(unsigned int sector, unsigned int size)
 	return bh;
 }
 
-struct buffer_head *sb_bread(unsigned int sector, unsigned int size)
+/* direct_read() 用來直接讀取某個 cluster
+ * 參數是 cluster, 但他會根據 partition
+ * 算出要從哪個 block 開始讀, 一次都讀 8 blocks
+ * 目的地則是
+ */
+
+void direct_read(void *buf, unsigned int cluster)
 {
-	return __bread(sector);
+	buf = alloc_page();
+	// read disk to buf
+}
+
+/* 此函式專門給讀 FAT table 用
+ * 因為一次只會讀一個 cluster
+ * 流程: 若是
+ */
+
+struct address_space *bread(unsigned int cluster)
+{
+	int *create;
+	struct address_space *addr = lookup(cluster, &create);
+	if (create == NEW_NODE) {
+		//哈哈!
+		direct_read(addr->data, cluster);
+		return addr;
+	} else { // find_node
+		return addr;
+	}
+}
+
+
+int main()
+{
+	return 0;
 }
