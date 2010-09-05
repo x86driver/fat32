@@ -49,9 +49,9 @@ void init_radix_tree()
 	radix = (struct radix_tree*)page_malloc(sizeof(struct radix_tree));
 	memset(radix, 0, sizeof(struct radix_tree));
 	int i;
-	void *buf = page_malloc(sizeof(struct radix_tree) * 128);
-	memset(buf, 0, sizeof(struct radix_tree) * 128);
-	for (i = 0; i < 128; ++i) {
+	void *buf = page_malloc(sizeof(struct radix_tree) * RADIX_SIZE);
+	memset(buf, 0, sizeof(struct radix_tree) * RADIX_SIZE);
+	for (i = 0; i < RADIX_SIZE; ++i) {
 		radix->next[i] = (struct radix_tree*)buf + i;
 	}
 }

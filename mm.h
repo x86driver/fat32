@@ -24,7 +24,6 @@ void init_address_space()
 
 static inline struct address_space *alloc_address_space()
 {
-//	return address_space_array[address_space_index++];
 	return address_space_array + address_space_index++;
 }
 
