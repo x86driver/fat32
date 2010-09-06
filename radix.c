@@ -6,6 +6,7 @@
 #include "page.h"
 
 struct radix_tree *radix;
+struct radix_tree *radix_buffer;	/* 用來給第二層使用的, 第二層會有 4096 個 */
 
 /* 問題
  * 一般讀資料時 我們都不用把他存在 buffer (用 direct_read)
@@ -31,12 +32,16 @@ struct radix_tree *radix;
 struct address_space *find_or_create(struct radix_tree * restrict radix,
 		unsigned int cluster, int * restrict create)
 {
-	struct radix_tree *lv1_node, *lv2_node;
-	lv1_node = radix->next[cluster >> 7];
-	lv2_node = lv1_node->next[cluster & 0x07f];
+	struct radix_tree *lv1_node, *lv2_node, *lv3_node;
+	lv1_node = radix->next[cluster >> 12];
+//	lv2_node = lv1_node->next[cluster & 0x07f];
+	lv2_node = radix->next[(cluster >> 6) & 0x03f];
 	if (lv2_node != NULL) {
-		*create = FIND_NODE;
-		return (struct address_space*)lv2_node;
+		lv3_node = radix->next[cluster & 0x03f];
+		if (lv3_node != NULL) {
+			*create = FIND_NODE;
+			return (struct address_space*)lv3_node;
+		}
 	} else { //第一層有找到 但第二層沒找到
 		struct address_space *addr = alloc_address_space();
 		BUG_ON(addr == NULL);

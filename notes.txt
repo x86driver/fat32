@@ -1,0 +1,13 @@
+注意:
+	1. cluster 是否有範圍限制?
+	   應該是小於 16384 (64MB)
+
+	2. radix tree 應該限制 cache 大小
+	   比方說只能 cache 32M, 超過就直接
+	   用 direct_read()
+
+	3. 寫一個 malloc on demand, init_() 時
+	   只先 malloc() 1/4 所有需要的大小,
+	   之後每次等到用完再 malloc() 1/4,
+	   陣列用一維, 第二次以後的 malloc()
+	   直接把他接在原本的後面

@@ -3,7 +3,7 @@
 
 #include "mm.h"
 
-#define RADIX_SIZE 128
+#define RADIX_SIZE 64
 #define FIND_NODE 0
 #define NEW_NODE 1
 

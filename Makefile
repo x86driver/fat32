@@ -1,4 +1,5 @@
-TARGET = buffer
+TARGET = mm
+#TARGET = buffer
 
 all: $(TARGET)
 
@@ -17,8 +18,11 @@ superblock.o:superblock.c superblock.h page.h
 io.o:io.c io.h
 	gcc -Wall -c -o $@ $< -g
 
-mm.o:mm.c mm.h
-	gcc -Wall -c -o $@ $< -g
+#mm.o:mm.c mm.h page.h radix.h
+#	gcc -Wall -c -o $@ $< -g -std=c99
+
+mm:mm.c mm.h page.h radix.h
+	gcc -Wall -o $@ $< -g -std=c99
 
 buffer.o: buffer.c buffer.h mm.h page.h fat32.h io.h radix.h superblock.h dir.h lib.h
 	gcc -Wall -c -o $@ $< -g -std=c99
