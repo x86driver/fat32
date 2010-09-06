@@ -4,5 +4,8 @@ read
 *.img
 *.txt
 *.dat
+*.o
 namei
 radix
+myfile
+buffer

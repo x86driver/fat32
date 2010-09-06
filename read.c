@@ -10,14 +10,12 @@
 #include "superblock.h"
 #include "buffer.h"
 
-#define SECTOR_SIZE 512
-
 unsigned char *cache;
 unsigned char *cache512;
 unsigned char *buf;
 
 struct FAT32 fat;
-struct super_block *sb;
+extern struct super_block *sb;
 
 /* Usage:
  * buf = read_sec(xxx);
@@ -36,21 +34,15 @@ unsigned char *read_sec(unsigned int sector)
  */
 unsigned char *read_clus(unsigned int clus)
 {
-        unsigned int sector = get_sec(clus);
+        unsigned int sector = fat_get_sec(clus);
         unsigned char *ptr = buf + sector * SECTOR_SIZE;
         memcpy(cache, ptr, 4096);
 	return cache;
 }
 
-static inline unsigned int find_first_partition()
-{
-        struct Partition *partition = (struct Partition*)(buf+0x1be);
-        return partition->startlba;
-}
-
 void read_content(unsigned int clus)
 {
-	unsigned int sector = get_sec(clus);
+	unsigned int sector = fat_get_sec(clus);
 	unsigned char *text = buf+sector*SECTOR_SIZE;
 	printf("%s", text);
 }
@@ -61,20 +53,20 @@ void dump_file(unsigned int first_clus, unsigned int size)
 	unsigned int next_clus = first_clus;
 	unsigned char *ptr;
         if (size <= 4096) {
-		ptr = buf + get_sec(next_clus) * SECTOR_SIZE;
+		ptr = buf + fat_get_sec(next_clus) * SECTOR_SIZE;
                 fwrite(ptr, size, 1, fp);
 		fclose(fp);
 		return;
 	}
 
 	do {
-		ptr = buf + get_sec(next_clus) * SECTOR_SIZE;
+		ptr = buf + fat_get_sec(next_clus) * SECTOR_SIZE;
 		fwrite(ptr, 4096, 1, fp);
 		size -= 4096;
-		next_clus = find_next_cluster(next_clus);
+		next_clus = fat_next_cluster(next_clus);
 	} while (size >=4096 && next_clus != 0x0FFFFFFF);
 
-	ptr = buf + get_sec(next_clus) * SECTOR_SIZE;
+	ptr = buf + fat_get_sec(next_clus) * SECTOR_SIZE;
 	fwrite(ptr, size, 1, fp);
 	fclose(fp);
 }
@@ -99,12 +91,13 @@ void fmtfname(char *dst, const char *src)
 	}
 }
 
+#if 0
+//doremi暫時註解掉
 void test_func()
 {
 	vfat_find("Thisisa_longfile.mydata.ok");
 }
 
-#if 0
 void read_file()
 {
 //	unsigned int datasec = get_sec(2);
@@ -141,7 +134,6 @@ void read_file()
 		++dir;
 	}
 }
-#endif
 
 int main()
 {
@@ -178,3 +170,4 @@ int main()
 	return 0;
 }
 
+#endif

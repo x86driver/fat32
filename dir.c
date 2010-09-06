@@ -1,11 +1,29 @@
 #include "fat32.h"
+#include "dir.h"
+#include "page.h"
+#include "buffer.h"
+#include <string.h>
+#include <stdio.h>
 
 struct msdos_sb dosb;
+
+void get_fat_info(unsigned int fat32_sec);
+unsigned char *read_sec(unsigned int sector);
+
+//改成用 direct_read
+//因為不需要 buffer 起來
+static inline unsigned int find_first_partition()
+{
+	void *buf = alloc_page();
+	direct_read_sector(buf, 0);
+        struct Partition *partition = (struct Partition*)((char*)buf+0x1be);
+        return partition->startlba;
+}
 
 void init_fat()
 {
 	unsigned int FATSz;
-        fat_table = find_first_partition();
+        unsigned int fat_table = find_first_partition();
         get_fat_info(fat_table);
 
         if (fat.BPB_FATSz16 != 0)
@@ -15,14 +33,15 @@ void init_fat()
 
         dosb.root_sec = (fat_table) + ((fat.BPB_RootEntCnt*32)+(fat.BPB_BytsPerSec-1))/fat.BPB_BytsPerSec;
         dosb.first_fat_sec = fat_table + fat.BPB_ResvdSecCnt;
-        dosb.first_data_sec = fat.BPB_ResvdSecCnt+(fat.BPB_NumFATs * FATSz) + RootDirSectors;
+        dosb.first_data_sec = fat.BPB_ResvdSecCnt+(fat.BPB_NumFATs * FATSz) + dosb.root_sec;
 	dosb.sec_per_clus = fat.BPB_SecPerClus;
 }
 
 void get_fat_info(unsigned int fat32_sec)
 {
-        unsigned char *ptr = read_sec(fat32_sec);
-        memcpy((void*)&fat, ptr, sizeof(fat));
+	void *buf = alloc_page();
+	direct_read_sector(buf, fat32_sec);
+        memcpy((void*)&fat, buf, sizeof(fat));
         printf("%s\n", fat.BS_OEMName);
         printf("size: %d\n", fat.BPB_BytsPerSec);
 }
@@ -32,7 +51,7 @@ void list_all_cluster(unsigned int first_clus)
 	unsigned int next_clus = first_clus;
 	do {
 		printf("%d -> ", next_clus);
-		next_clus = find_next_cluster(next_clus);
+		next_clus = fat_next_cluster(next_clus);
 	} while (next_clus != 0x0FFFFFFF);
 	printf("end\n");
 }
@@ -111,4 +130,3 @@ int vfat_find(char *fname)
 }
 
 #endif
-

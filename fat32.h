@@ -1,6 +1,8 @@
 #ifndef _FAT32_H
 #define _FAT32_H
 
+#define SECTOR_SIZE 512
+
 struct FAT32 {
   char BS_jmpBoot[3];
   char BS_OEMName[8];
@@ -84,6 +86,9 @@ struct msdos_sb {
 
 extern struct FAT32 fat;
 extern unsigned int fat_table;
+extern struct msdos_sb dosb;
+
+extern unsigned char *buf; //這個未來可能要拿掉 by doremi
 
 static inline unsigned int fat_get_sec(unsigned int cluster)
 {
@@ -100,7 +105,7 @@ static inline unsigned int fat_next_cluster(unsigned int currentry)
 	 *         cluster 回傳就好
 	 * 『注意』： 目前尚未完成這個函式, 因為要用 bread 去讀
 	 */
-	unsigned int cluster = *(unsigned int*)(buf + (FirstFatSector * SECTOR_SIZE + currentry * 4));
+	unsigned int cluster = *(unsigned int*)(buf + (dosb.first_fat_sec * SECTOR_SIZE + currentry * 4));
 	return cluster;
 }
 

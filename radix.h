@@ -21,5 +21,6 @@ static inline struct address_space *lookup(unsigned int cluster, int * restrict 
         return find_or_create(radix, cluster, create);
 }
 
+void init_radix_tree();
 #endif
 

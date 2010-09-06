@@ -2,6 +2,8 @@
 #include <string.h>
 #include "radix.h"
 #include "mm.h"
+#include "lib.h"
+#include "page.h"
 
 struct radix_tree *radix;
 
@@ -37,6 +39,7 @@ struct address_space *find_or_create(struct radix_tree * restrict radix,
 		return (struct address_space*)lv2_node;
 	} else { //第一層有找到 但第二層沒找到
 		struct address_space *addr = alloc_address_space();
+		BUG_ON(addr == NULL);
 		addr->cluster = cluster;
 		*create = NEW_NODE;
 		lv1_node->next[cluster & 0x07f] = (struct radix_tree*)addr;
@@ -73,6 +76,7 @@ void lookup2(unsigned int cluster)
         }
 }
 
+#if 0
 int main()
 {
 	init_address_space();
@@ -86,3 +90,4 @@ int main()
 	}
 	return 0;
 }
+#endif
