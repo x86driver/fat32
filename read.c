@@ -56,7 +56,6 @@ void dump_file(unsigned int first_clus, unsigned int size)
 	unsigned char *ptr = alloc_page();
         if (size <= 4096) {
 		direct_read(ptr, next_clus);
-//		ptr = buf + fat_get_sec(next_clus) * SECTOR_SIZE;
                 fwrite(ptr, size, 1, fp);
 		fclose(fp);
 		return;
@@ -64,23 +63,21 @@ void dump_file(unsigned int first_clus, unsigned int size)
 
 	do {
 		direct_read(ptr, next_clus);
-//		ptr = buf + fat_get_sec(next_clus) * SECTOR_SIZE;
 		fwrite(ptr, 4096, 1, fp);
 		size -= 4096;
 		next_clus = fat_next_cluster(next_clus);
 	} while (size >=4096 && next_clus != 0x0FFFFFFF);
 
 	direct_read(ptr, next_clus);
-//	ptr = buf + fat_get_sec(next_clus) * SECTOR_SIZE;
 	fwrite(ptr, size, 1, fp);
 	fclose(fp);
 }
 
 void fmtfname(char *dst, const char *src)
 {
-//format file name to 8 3 (DOS)
-//WARNING: make sure 'dst' must allocated 11 bytes
-// and filled with 0x20 (space)
+	//format file name to 8 3 (DOS)
+	//WARNING: make sure 'dst' must allocated 11 bytes
+	// and filled with 0x20 (space)
 
 	int count = 0;
 	while (1) {
@@ -89,7 +86,7 @@ void fmtfname(char *dst, const char *src)
 	        	++src;
         		continue;
         	} else if (*src == '\0')
-        		break;
+		  break;
 
 	        *dst++ = *src++;
         	++count;
@@ -98,38 +95,47 @@ void fmtfname(char *dst, const char *src)
 
 void show_dir()
 {
-	struct address_space *addr = bread_cluster(2);
-	struct dir_entry *dir = (struct dir_entry*)addr->data;
+	unsigned int next_clus = 2;
+	struct address_space *addr;
 	int i = 0;
 	int long_flag = 0;
+	int file_count = 0;
 
-	for (; i < 4096/sizeof(struct dir_entry); ++i) {
-		if (dir->name[0] == 0)		/* no more files */
-			break;
-		if (dir->name[0] == 0xe5) {	/* deleted file */
-			++dir;
-			continue;
-		}
-		if (dir->attr == 0x0f) {	/* subcomponent long name */
-			long_flag = 1;
-			++dir;
-			continue;
-		} else {
-			if (long_flag == 0)
-				printf("Filename: %s\n", dir->name);
-			else {
-				printf("Filename: %s (It has long name)\n", dir->name);
-				long_flag = 0;
+	do {
+		addr = bread_cluster(next_clus);
+		struct dir_entry *dir = (struct dir_entry*)addr->data;
+		for (; i < 4096/sizeof(struct dir_entry); ++i) {
+			if (dir->name[0] == 0)		/* no more files */
+			  break;
+			if (dir->name[0] == 0xe5) {	/* deleted file */
+				++dir;
+				continue;
 			}
-		}
+			if (dir->attr == 0x0f) {	/* subcomponent long name */
+				long_flag = 1;
+				++dir;
+				continue;
+			} else {
+				++file_count;
+				if (long_flag == 0)
+				  printf("Filename: %s\n", dir->name);
+				else {
+					printf("Filename: %s (It has long name)\n", dir->name);
+					long_flag = 0;
+				}
+			}
 
-		unsigned int clus = (dir->starthi << 16 | dir->start);
-		printf("Size: %d\n", dir->size);
-		printf("Data cluster: %d\n", clus);
-		if (dir->name[0] == 'A')
-			dump_file(clus, dir->size);
-		++dir;
-	}
+			unsigned int clus = (dir->starthi << 16 | dir->start);
+			printf("Size: %d\n", dir->size);
+			printf("Data cluster: %d\n", clus);
+			if (dir->name[0] == 'G')
+			  dump_file(clus, dir->size);
+			++dir;
+		}
+		next_clus = fat_next_cluster(next_clus);
+	} while (next_clus != 0x0FFFFFFF);
+
+	printf("file count: %d\n", file_count);
 }
 
 void test_func()
