@@ -6,10 +6,13 @@
 
 #define DEBUG
 #ifdef DEBUG
-#define BUG_ON(cond) do { if (cond) { printf("BUG ON %p\n", __builtin_return_address(0)); exit(1);} } while (0);
+#define BUG_ON(cond) do { if (cond) { printf("BUG ON %p, %s\n", __builtin_return_address(0), __FUNCTION__); exit(1);} } while (0);
 #else
 #define BUS_ON(cond)
 #endif
+
+#define likely(x)       __builtin_expect((x),1)
+#define unlikely(x)     __builtin_expect((x),0)
 
 static inline void dump(unsigned char *buf, unsigned int start, unsigned int size)
 {
