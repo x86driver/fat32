@@ -19,7 +19,9 @@ void init_disk()
 
 void read8blocks(void *buf, unsigned int start_block)
 {
-	lseek(fd, start_block * 512, SEEK_SET);
-	read(fd, buf, 4096);
+	if (lseek(fd, start_block * 512, SEEK_SET) == -1)
+		perror("lseek");
+	if (read(fd, buf, 4096) == -1)
+		perror("read");
 }
 

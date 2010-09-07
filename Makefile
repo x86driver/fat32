@@ -1,9 +1,6 @@
-TARGET = buffer
+TARGET = read
 
 all: $(TARGET)
-
-read.o:read.c fat32.h
-	gcc -Wall -c -o $@ $< -g
 
 radix.o:radix.c radix.h mm.h mm.o
 	gcc -Wall -c -o $@ $< -g -std=c99
@@ -23,7 +20,10 @@ mm.o:mm.c mm.h page.h radix.h
 buffer.o: buffer.c buffer.h mm.h page.h fat32.h io.h radix.h superblock.h dir.h lib.h
 	gcc -Wall -c -o $@ $< -g -std=c99
 
-buffer:buffer.o dir.o radix.o superblock.o io.o read.o mm.o
+read.o:read.c
+	gcc -Wall -c -o $@ $< -g -std=c99
+
+read:read.o buffer.o dir.o radix.o superblock.o io.o read.o mm.o
 	gcc -Wall -o $@ $^ -g -std=c99
 
 clean:

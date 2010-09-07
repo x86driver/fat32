@@ -9,6 +9,8 @@
 #include "fat32.h"
 #include "superblock.h"
 #include "buffer.h"
+#include "page.h"
+#include "mm.h"
 
 unsigned char *cache;
 unsigned char *cache512;
@@ -51,22 +53,25 @@ void dump_file(unsigned int first_clus, unsigned int size)
 {
 	FILE *fp = fopen("e.dat", "wb");
 	unsigned int next_clus = first_clus;
-	unsigned char *ptr;
+	unsigned char *ptr = alloc_page();
         if (size <= 4096) {
-		ptr = buf + fat_get_sec(next_clus) * SECTOR_SIZE;
+		direct_read(ptr, next_clus);
+//		ptr = buf + fat_get_sec(next_clus) * SECTOR_SIZE;
                 fwrite(ptr, size, 1, fp);
 		fclose(fp);
 		return;
 	}
 
 	do {
-		ptr = buf + fat_get_sec(next_clus) * SECTOR_SIZE;
+		direct_read(ptr, next_clus);
+//		ptr = buf + fat_get_sec(next_clus) * SECTOR_SIZE;
 		fwrite(ptr, 4096, 1, fp);
 		size -= 4096;
 		next_clus = fat_next_cluster(next_clus);
 	} while (size >=4096 && next_clus != 0x0FFFFFFF);
 
-	ptr = buf + fat_get_sec(next_clus) * SECTOR_SIZE;
+	direct_read(ptr, next_clus);
+//	ptr = buf + fat_get_sec(next_clus) * SECTOR_SIZE;
 	fwrite(ptr, size, 1, fp);
 	fclose(fp);
 }
@@ -91,50 +96,56 @@ void fmtfname(char *dst, const char *src)
 	}
 }
 
-#if 0
-//doremi暫時註解掉
-void test_func()
+void show_dir()
 {
-	vfat_find("Thisisa_longfile.mydata.ok");
-}
+	struct address_space *addr = bread_cluster(2);
+	struct dir_entry *dir = (struct dir_entry*)addr->data;
+	int i = 0;
+	int long_flag = 0;
 
-void read_file()
-{
-//	unsigned int datasec = get_sec(2);
-//	struct dir_entry *dir = (struct dir_entry*)(buf+(datasec*SECTOR_SIZE));
-	struct dir_entry *dir = (struct dir_entry*)read_clus(2);
-	unsigned int i = 0;
-	unsigned int long_flag = 0;
-
-	for (; i < 16; ++i) {
-		if (dir->DIR_Name[0] == 0)	/* no more files */
+	for (; i < 4096/sizeof(struct dir_entry); ++i) {
+		if (dir->name[0] == 0)		/* no more files */
 			break;
-		if (dir->DIR_Name[0] == 0xe5) {	/* deleted file */
+		if (dir->name[0] == 0xe5) {	/* deleted file */
 			++dir;
 			continue;
 		}
-		if (dir->DIR_Attr == 0x0f) {	/* subcomponent long name */
+		if (dir->attr == 0x0f) {	/* subcomponent long name */
 			long_flag = 1;
 			++dir;
 			continue;
 		} else {
 			if (long_flag == 0)
-				printf("Filename: %s\n", dir->DIR_Name);
+				printf("Filename: %s\n", dir->name);
 			else {
-				printf("Filename: %s (It has long name)\n", dir->DIR_Name);
+				printf("Filename: %s (It has long name)\n", dir->name);
 				long_flag = 0;
 			}
 		}
 
-		unsigned int clus = (dir->DIR_FstClusHI << 16 | dir->DIR_FstClusLO);
-		printf("Size: %d\n", dir->DIR_FileSize);
+		unsigned int clus = (dir->starthi << 16 | dir->start);
+		printf("Size: %d\n", dir->size);
 		printf("Data cluster: %d\n", clus);
-//		if (dir->DIR_Name[0] == 'E')
-//			dump_file(clus, dir->DIR_FileSize);
+		if (dir->name[0] == 'A')
+			dump_file(clus, dir->size);
 		++dir;
 	}
 }
 
+void test_func()
+{
+	show_dir();
+}
+
+int main()
+{
+	init_all();
+	test_func();
+
+	return 0;
+}
+
+#if 0
 int main()
 {
 	int fd = open("fat32.img", O_RDONLY);

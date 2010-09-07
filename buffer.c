@@ -36,15 +36,16 @@ void direct_read(void *buf, unsigned int cluster)
  * 專門給讀 FAT table 以及 DIR entry 專用
  * 因為一次只會讀一個 cluster
  * 而且不用管資料讀到哪裡, 因此放資料的地方用 alloc_page()
+ * 注意: 這裡參數是 sector, 但一次讀 4096 bytes
  */
 
-struct address_space *bread(unsigned int cluster)
+struct address_space *bread_sector(unsigned int sector)
 {
 	int create;
-	struct address_space *addr = lookup(cluster, &create);
+	struct address_space *addr = lookup(sector, &create);
 	if (create == NEW_NODE) {
 		addr->data = alloc_page();
-		direct_read(addr->data, cluster);
+		direct_read_sector(addr->data, sector);
 		return addr;
 	} else { // find_node
 		return addr;
@@ -68,21 +69,21 @@ void test_direct_read()
 //	dump(buf, 0, 512);
 }
 
+#if 0
 void test_bread()
 {
 	struct address_space *addr;
 	addr = bread(2);
 	dump(addr->data, 0, 512);
 }
-
-#define RANDOM_SIZE 1
-int *random_cluster;
+#endif
 
 /* 測試方法
  * 限制大小為 1G 以內
  * 每次測 8192 個 cluster
  */
 
+#if 0
 void test_data(int start)
 {
 	int i, cmp;
@@ -101,7 +102,9 @@ void test_data(int start)
 		}
 	}
 }
+#endif
 
+#if 0
 int main(int argc, char **argv)
 {
 	unsigned int i = 0;
@@ -118,3 +121,4 @@ int main(int argc, char **argv)
 //	}
 	return 0;
 }
+#endif

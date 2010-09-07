@@ -82,6 +82,7 @@ struct msdos_sb {
 	unsigned int root_sec;
 	unsigned int first_fat_sec;
 	unsigned int first_data_sec;
+	unsigned int cur_dir_clus;
 };
 
 extern struct FAT32 fat;
@@ -95,19 +96,7 @@ static inline unsigned int fat_get_sec(unsigned int cluster)
         return ((cluster - 2) * dosb.sec_per_clus) + dosb.first_data_sec;
 }
 
-static inline unsigned int fat_next_cluster(unsigned int currentry)
-{
-	/* 流程:
-	 * 1. 取得 currentry 所在的 cluster
-	 * 2. 找到下一個 entry
-	 * ☯注意： 這裡不論如何只需要讀取一次 cluster,
-	 *         不需要讀取下一個 cluster, 因為我們只是把找到的
-	 *         cluster 回傳就好
-	 * 『注意』： 目前尚未完成這個函式, 因為要用 bread 去讀
-	 */
-	unsigned int cluster = *(unsigned int*)(buf + (dosb.first_fat_sec * SECTOR_SIZE + currentry * 4));
-	return cluster;
-}
+unsigned int fat_next_cluster(unsigned int currentry);
 
 static inline void namecpy(char *dst, const unsigned char *src, int len)
 {

@@ -1,33 +1,19 @@
 #ifndef _BUFFER_H
 #define _BUFFER_H
 
-#include "mm.h"
+#include "fat32.h"
 
-struct buffer_head {
-	char *b_data;
-};
+void direct_read_sector(void *buf, unsigned int sector);
+void direct_read(void *buf, unsigned int cluster);
+struct address_space *bread_sector(unsigned int sector);
+struct address_space *bread(unsigned int cluster);
+void init_all();
 
-struct bio_vec {
-	unsigned int start_sector;
-	unsigned int size;		/* aligned 512 bytes */
-	struct page *page;		/* pointer to the page */
-};
+static inline struct address_space *bread_cluster(unsigned int cluster)
+{
+        unsigned int sector = fat_get_sec(cluster);
+        return bread_sector(sector);
+}
 
-/* 會存放一個向量 */
-struct bio {
-	unsigned int bio_cnt;		/* count of bio_io_vec */
-	unsigned int index;
-	struct bio_vec *iovec;
-	struct bio_vec *iovec_tail;
-	int stream;
-	unsigned int addr;
-};
-
-void brelse(struct buffer_head *bh);
-struct buffer_head *__bread(unsigned int sector, unsigned int size);
-struct buffer_head *sb_bread(unsigned int sector, unsigned int size);
-
-inline void direct_read_sector(void *buf, unsigned int sector);
-inline void direct_read(void *buf, unsigned int cluster);
 #endif
 

@@ -2,6 +2,7 @@
 #include "dir.h"
 #include "page.h"
 #include "buffer.h"
+#include "mm.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -35,6 +36,7 @@ void init_fat()
         dosb.first_fat_sec = fat_table + fat.BPB_ResvdSecCnt;
         dosb.first_data_sec = fat.BPB_ResvdSecCnt+(fat.BPB_NumFATs * FATSz) + dosb.root_sec;
 	dosb.sec_per_clus = fat.BPB_SecPerClus;
+	dosb.cur_dir_clus = 2;
 }
 
 void get_fat_info(unsigned int fat32_sec)
@@ -54,6 +56,23 @@ void list_all_cluster(unsigned int first_clus)
 		next_clus = fat_next_cluster(next_clus);
 	} while (next_clus != 0x0FFFFFFF);
 	printf("end\n");
+}
+
+unsigned int fat_next_cluster(unsigned int currentry)
+{
+        /* 流程:
+         * 1. 取得 currentry 所在的 cluster
+         * 2. 找到下一個 entry
+         * ☯注意： 這裡不論如何只需要讀取一次 cluster,
+         *         不需要讀取下一個 cluster, 因為我們只是把找到的
+         *         cluster 回傳就好
+         * 『注意』： 目前尚未完成這個函式, 因為要用 bread 去讀
+         */
+	struct address_space *addr = bread_sector(dosb.first_fat_sec + ((currentry * 4) / SECTOR_SIZE));
+	unsigned char *ptr = (unsigned char*)addr->data;
+	return *(unsigned int*)((ptr + ((currentry * 4) & (SECTOR_SIZE - 1))));
+//        unsigned int cluster = *(unsigned int*)(buf + (dosb.first_fat_sec * SECTOR_SIZE + currentry * 4));
+//        return cluster;
 }
 
 //注意, 以下全部先註解
