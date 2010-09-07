@@ -3,9 +3,6 @@
 #include "radix.h"
 #include "lib.h"
 
-#define RADIX_SIZE_LV2 RADIX_SIZE * RADIX_SIZE
-#define RADIX_THRESHOLD 4
-
 struct address_space *address_space_array;
 unsigned int address_space_index;
 struct radix_tree *radix_buffer[RADIX_THRESHOLD];
@@ -16,7 +13,7 @@ unsigned int radix_buffer_cur_max;
 void init_address_space()
 {
 	//數量是128*128 = 16384
-        address_space_array = (struct address_space*)page_malloc(16384 * sizeof(struct address_space));
+        address_space_array = (struct address_space*)page_malloc(CACHE_ENTRY * sizeof(struct address_space));
         address_space_index = 0;
 }
 
@@ -41,6 +38,7 @@ struct radix_tree *alloc_radix_tree()
 	return radix_buffer[radix_buffer_array_index] + radix_buffer_index++;
 }
 
+#if 0
 int main()
 {
 	init_radix_allocator();
@@ -55,4 +53,4 @@ int main()
 	}
 	return 0;
 }
-
+#endif

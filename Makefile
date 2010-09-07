@@ -1,4 +1,4 @@
-TARGET = mm
+TARGET = radix
 #TARGET = buffer
 
 all: $(TARGET)
@@ -6,8 +6,8 @@ all: $(TARGET)
 read.o:read.c fat32.h
 	gcc -Wall -c -o $@ $< -g
 
-radix.o:radix.c radix.h mm.h
-	gcc -Wall -c -o $@ $< -g -std=c99
+radix:radix.c radix.h mm.h mm.o
+	gcc -Wall -o $@ $< mm.o -g -std=c99 -fno-stack-protector
 
 dir.o:dir.c dir.h page.h io.h fat32.h
 	gcc -Wall -c -o $@ $< -g
@@ -18,11 +18,8 @@ superblock.o:superblock.c superblock.h page.h
 io.o:io.c io.h
 	gcc -Wall -c -o $@ $< -g
 
-#mm.o:mm.c mm.h page.h radix.h
-#	gcc -Wall -c -o $@ $< -g -std=c99
-
-mm:mm.c mm.h page.h radix.h
-	gcc -Wall -o $@ $< -g -std=c99
+mm.o:mm.c mm.h page.h radix.h
+	gcc -Wall -c -o $@ $< -g -std=c99 -fno-stack-protector
 
 buffer.o: buffer.c buffer.h mm.h page.h fat32.h io.h radix.h superblock.h dir.h lib.h
 	gcc -Wall -c -o $@ $< -g -std=c99
