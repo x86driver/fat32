@@ -93,14 +93,14 @@ void lookup2(unsigned int cluster)
         }
 }
 
-#if 1
+#if 0
 int main()
 {
 	init_address_space();
 	init_radix_allocator();
 	init_radix_tree();
 	int i;
-#define START 260000
+#define START 0
 	for (i = START; i < START + CACHE_ENTRY; ++i) {
 		lookup2(i);
 	}

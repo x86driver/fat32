@@ -1,13 +1,12 @@
-TARGET = radix
-#TARGET = buffer
+TARGET = buffer
 
 all: $(TARGET)
 
 read.o:read.c fat32.h
 	gcc -Wall -c -o $@ $< -g
 
-radix:radix.c radix.h mm.h mm.o
-	gcc -Wall -o $@ $< mm.o -g -std=c99 -fno-stack-protector
+radix.o:radix.c radix.h mm.h mm.o
+	gcc -Wall -c -o $@ $< -g -std=c99
 
 dir.o:dir.c dir.h page.h io.h fat32.h
 	gcc -Wall -c -o $@ $< -g
@@ -19,7 +18,7 @@ io.o:io.c io.h
 	gcc -Wall -c -o $@ $< -g
 
 mm.o:mm.c mm.h page.h radix.h
-	gcc -Wall -c -o $@ $< -g -std=c99 -fno-stack-protector
+	gcc -Wall -c -o $@ $< -g -std=c99
 
 buffer.o: buffer.c buffer.h mm.h page.h fat32.h io.h radix.h superblock.h dir.h lib.h
 	gcc -Wall -c -o $@ $< -g -std=c99
