@@ -42,7 +42,14 @@ void direct_read(void *buf, unsigned int cluster)
 struct address_space *bread_sector(unsigned int sector)
 {
 	int create;
-	struct address_space *addr = lookup(sector, &create);
+	struct address_space *addr;
+	if (sector >= RADIX_SIZE * RADIX_SIZE * RADIX_SIZE) {
+		addr = alloc_address_space();
+		addr->data = alloc_page();
+		direct_read_sector(addr->data, sector);
+		return addr;
+	}
+	addr = lookup(sector, &create);
 	if (create == NEW_NODE) {
 		addr->data = alloc_page();
 		direct_read_sector(addr->data, sector);

@@ -3,8 +3,15 @@
 
 #include <stdlib.h>
 
+#ifdef DEBUG_MEMORY_USAGE
+extern unsigned int memory_usage;
+#endif
+
 static inline void *page_malloc(size_t size)
 {
+#ifdef DEBUG_MEMORY_USAGE
+	memory_usage += size;
+#endif
 	return malloc(size);
 }
 

@@ -89,8 +89,6 @@ extern struct FAT32 fat;
 extern unsigned int fat_table;
 extern struct msdos_sb dosb;
 
-extern unsigned char *buf; //這個未來可能要拿掉 by doremi
-
 static inline unsigned int fat_get_sec(unsigned int cluster)
 {
         return ((cluster - 2) * dosb.sec_per_clus) + dosb.first_data_sec;

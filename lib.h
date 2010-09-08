@@ -4,7 +4,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define DEBUG_MEMORY_USAGE
 #define DEBUG
+
 #ifdef DEBUG
 #define BUG_ON(cond) do { if (cond) { printf("BUG ON %p, %s\n", __builtin_return_address(0), __FUNCTION__); exit(1);} } while (0);
 #else

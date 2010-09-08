@@ -10,7 +10,8 @@ static int fd;
 
 void init_disk()
 {
-        fd = open("sd4g.img", O_RDONLY);
+//        fd = open("fat32.img", O_RDONLY);
+	fd = open("sd4g.img", O_RDONLY);
         if (fd == -1) {
                 perror("open");
                 exit(1);

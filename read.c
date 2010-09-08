@@ -12,13 +12,13 @@
 #include "page.h"
 #include "mm.h"
 
-unsigned char *cache;
-unsigned char *cache512;
-unsigned char *buf;
+#ifdef DEBUG_MEMORY_USAGE
+unsigned int memory_usage = 0;
+#endif
 
 struct FAT32 fat;
-extern struct super_block *sb;
 
+#if 0
 /* Usage:
  * buf = read_sec(xxx);
  * Beware size of buf is 512
@@ -48,6 +48,7 @@ void read_content(unsigned int clus)
 	unsigned char *text = buf+sector*SECTOR_SIZE;
 	printf("%s", text);
 }
+#endif
 
 void dump_file(unsigned int first_clus, unsigned int size)
 {
@@ -104,7 +105,7 @@ void show_dir()
 	do {
 		addr = bread_cluster(next_clus);
 		struct dir_entry *dir = (struct dir_entry*)addr->data;
-		for (; i < 4096/sizeof(struct dir_entry); ++i) {
+		for (i = 0; i < 4096/sizeof(struct dir_entry); ++i) {
 			if (dir->name[0] == 0)		/* no more files */
 			  break;
 			if (dir->name[0] == 0xe5) {	/* deleted file */
@@ -141,12 +142,19 @@ void show_dir()
 void test_func()
 {
 	show_dir();
+//	list_all_cluster(2);
 }
 
 int main()
 {
+#ifdef DEBUG_MEMORY_USAGE
+	memory_usage = 0;
+#endif
 	init_all();
 	test_func();
+#ifdef DEBUG_MEMORY_USAGE
+	printf("\nMemory usage: %d\n", memory_usage);
+#endif
 
 	return 0;
 }
