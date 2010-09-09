@@ -76,37 +76,23 @@ unsigned int fat_next_cluster(unsigned int currentry)
 //        return cluster;
 }
 
-//注意, 以下全部先註解
-#if 0
-
-/* 傳回指向 cluster 的 pointer
- * 要做的事情:
- * 1. 算出"相對於"該 partition 的 sector
- * 2. 呼叫 sb_bread
- * 3. 傳回 bh->b_data
- */
-void *fat_read_clus(unsigned int cluster)
+int __fat_get_entry_slow(struct address_space **addr, struct dir_entry **de)
 {
+	dosb.cur_dir_clus = fat_next_cluster(dosb.cur_dir_clus);
+	*addr = bread_cluster(dosb.cur_dir_clus);
+	*de = (struct dir_entry*)(*addr)->data;
 }
 
-unsigned char *entry_buf = NULL;
-int __fat_get_entry_slow(struct buffer_head **bh, struct inode **inod, struct dir_entry **de)
+int fat_get_entry(struct address_space **addr, struct dir_entry **de)
 {
-	bh = sb_bread();
-	entry_buf = fat_read_clus(2);
-	*de = (struct dir_entry*)entry_buf;
-}
-
-int fat_get_entry(struct buffer_head **bh, struct dir_entry **de)
-{
-	if (*bh && *de && (*de - bh->b_data < 4096)) {
+	if (*addr && *de && (*de - (*addr)->data) < 4096) {
 		(*de)++;
 		return 0;
 	}
-	return __fat_get_entry_slow(bh, de);
+	return __fat_get_entry_slow(addr, de);
 }
 
-int fat_parse_long(struct dir_entry **de)
+int fat_parse_long(struct dir_entry **de, int i, unsigned int cur_cluster)
 {
 	char filename[260];
 	unsigned char slot;
@@ -133,6 +119,7 @@ int fat_parse_long(struct dir_entry **de)
 	return 0;
 }
 
+#if 0
 int vfat_find(char *fname)
 {
 	struct dir_entry *de = NULL;
