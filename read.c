@@ -11,9 +11,10 @@
 #include "buffer.h"
 #include "page.h"
 #include "mm.h"
+#include "dir.h"
 
 #ifdef DEBUG_MEMORY_USAGE
-unsigned int memory_usage = 0;
+extern unsigned int memory_usage;
 #endif
 
 struct FAT32 fat;
@@ -50,11 +51,14 @@ void read_content(unsigned int clus)
 }
 #endif
 
-void dump_file(unsigned int first_clus, unsigned int size)
+//void dump_file(unsigned int first_clus, unsigned int size)
+void dump_file(int fd)
 {
 	FILE *fp = fopen("e.dat", "wb");
-	unsigned int next_clus = first_clus;
+	unsigned int next_clus = fd_pool[fd].cluster;
+	unsigned int size = fd_pool[fd].size;
 	unsigned char *ptr = alloc_page();
+
         if (size <= 4096) {
 		direct_read(ptr, next_clus);
                 fwrite(ptr, size, 1, fp);
@@ -94,62 +98,67 @@ void fmtfname(char *dst, const char *src)
 	}
 }
 
-void show_dir()
+void search_dir(int fd, char *filename)
 {
-	unsigned int next_clus = 2;
-	struct address_space *addr;
-	int i = 0;
-	int long_flag = 0;
-	int file_count = 0;
+	struct address_space *addr = NULL;
+	struct dir_entry *dir = NULL;
 
+	fat_get_entry(&addr, &dir);
 	do {
-		addr = bread_cluster(next_clus);
-		struct dir_entry *dir = (struct dir_entry*)addr->data;
-		for (i = 0; i < 4096/sizeof(struct dir_entry); ++i) {
-			if (dir->name[0] == 0)		/* no more files */
-			  break;
-			if (dir->name[0] == 0xe5) {	/* deleted file */
-				++dir;
-				continue;
+		if (dir->name[0] == 0)		/* no more files */
+		  break;
+		if (dir->name[0] == 0xe5)	/* deleted file */
+		  continue;
+		if (dir->attr == 0x0f) {	/* subcomponent long name */
+			if (fat_parse_long(&addr, &dir, filename, fd) != 0) {
+				printf("Parse long name failed!\n");
 			}
-			if (dir->attr == 0x0f) {	/* subcomponent long name */
-				long_flag = 1;
-				++dir;
-				continue;
-			} else {
-				++file_count;
-				if (long_flag == 0)
-				  printf("Filename: %s\n", dir->name);
-				else {
-					printf("Filename: %s (It has long name)\n", dir->name);
-					long_flag = 0;
-				}
-			}
-
-			unsigned int clus = (dir->starthi << 16 | dir->start);
-			printf("Size: %d\n", dir->size);
-			printf("Data cluster: %d\n", clus);
-			if (dir->name[0] == 'G')
-			  dump_file(clus, dir->size);
-			++dir;
 		}
-		next_clus = fat_next_cluster(next_clus);
-	} while (next_clus != 0x0FFFFFFF);
 
-	printf("file count: %d\n", file_count);
+		/* regular file */
+		printf("Name: %s\n", dir->name);
+		unsigned int clus = (dir->starthi << 16 | dir->start);
+		printf("Size: %d\n", dir->size);
+		printf("Data cluster: %d\n", clus);
+	} while (fat_get_entry(&addr, &dir) == 0);
+
+//	printf("file count: %d\n", file_count);
+}
+
+int find_empty_fd()
+{
+	int i = 0;
+	for (; i < MAX_FD; ++i) {
+		if (fd_pool[i].cluster == 0) {
+			return i;
+		}
+	}
+	printf("fd pool is full!\n");
+	return -1;
+}
+
+int file_open(char *filename)
+{
+	int fd = find_empty_fd();
+	search_dir(fd, filename);
+	return fd;
+}
+
+int file_read(int fd)
+{
+	dump_file(fd);
+	return 0;
 }
 
 void test_func()
 {
-	show_dir();
+	int fd = file_open("thisisalongname.gogo");
+	file_read(fd);
 //	list_all_cluster(2);
 }
 
 int main()
 {
-#ifdef DEBUG_MEMORY_USAGE
-	memory_usage = 0;
-#endif
 	init_all();
 	test_func();
 #ifdef DEBUG_MEMORY_USAGE

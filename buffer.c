@@ -8,7 +8,11 @@
 #include "page.h"
 #include <string.h>
 
-extern unsigned char *buf;
+#ifdef DEBUG_MEMORY_USAGE
+unsigned int memory_usage = 0;
+#endif
+
+struct inode fd_pool[MAX_FD];
 
 void direct_read_sector(void *buf, unsigned int sector)
 {
@@ -61,6 +65,11 @@ struct address_space *bread_sector(unsigned int sector)
 
 void init_all()
 {
+#ifdef DEBUG_MEMORY_USAGE
+	memory_usage = 0;
+#endif
+
+	memset((void*)&fd_pool[0], 0, sizeof(fd_pool));
         init_disk();
         init_superblock();
         init_fat();

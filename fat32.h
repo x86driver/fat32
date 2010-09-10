@@ -62,6 +62,8 @@ struct dir_long_entry {
 };
 
 struct inode {
+	unsigned int cluster;
+	unsigned int size;
 };
 
 struct Partition {
@@ -102,6 +104,17 @@ static inline void namecpy(char *dst, const unsigned char *src, int len)
 		*dst++ = *src++;
 		++src;
 	}
+}
+
+static inline unsigned char fat_checksum(const unsigned char *name)
+{
+        unsigned char s = name[0];
+        s = (s<<7) + (s>>1) + name[1];  s = (s<<7) + (s>>1) + name[2];
+        s = (s<<7) + (s>>1) + name[3];  s = (s<<7) + (s>>1) + name[4];
+        s = (s<<7) + (s>>1) + name[5];  s = (s<<7) + (s>>1) + name[6];
+        s = (s<<7) + (s>>1) + name[7];  s = (s<<7) + (s>>1) + name[8];
+        s = (s<<7) + (s>>1) + name[9];  s = (s<<7) + (s>>1) + name[10];
+        return s;
 }
 
 #endif

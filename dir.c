@@ -78,25 +78,38 @@ unsigned int fat_next_cluster(unsigned int currentry)
 
 int __fat_get_entry_slow(struct address_space **addr, struct dir_entry **de)
 {
-	dosb.cur_dir_clus = fat_next_cluster(dosb.cur_dir_clus);
+	if (unlikely(dosb.cur_dir_clus == 0x0FFFFFFF))
+		return -1;
 	*addr = bread_cluster(dosb.cur_dir_clus);
 	*de = (struct dir_entry*)(*addr)->data;
+	dosb.cur_dir_clus = fat_next_cluster(dosb.cur_dir_clus);
+	return 0;
 }
 
 int fat_get_entry(struct address_space **addr, struct dir_entry **de)
 {
-	if (*addr && *de && (*de - (*addr)->data) < 4096) {
+	if (*addr && *de && (*de - (struct dir_entry*)(*addr)->data) < 4096) {
 		(*de)++;
 		return 0;
 	}
 	return __fat_get_entry_slow(addr, de);
 }
 
-int fat_parse_long(struct dir_entry **de, int i, unsigned int cur_cluster)
+static inline int fat_cmp_name(char *filename, char *search_name)
+{
+	for (; *search_name != 0; ++filename, ++search_name) {
+		if (*filename != *search_name)
+			return -1;
+	}
+	return 0;
+}
+
+int fat_parse_long(struct address_space **addr, struct dir_entry **de, char *search_name, int fd)
 {
 	char filename[260];
 	unsigned char slot;
 	struct dir_long_entry *dle = (struct dir_long_entry*)*de;
+	unsigned char checksum = dle->alias_checksum;
 	if (!(dle->id & 0x40)) {
 		printf("Parse error!");
 		return -1;
@@ -112,28 +125,22 @@ int fat_parse_long(struct dir_entry **de, int i, unsigned int cur_cluster)
 
 		if (slot == 0)
 			break;
-		fat_get_entry(de);
+		fat_get_entry(addr, de);
 		dle = (struct dir_long_entry*)*de;
-	}
-	printf("Found %s\n", filename);
-	return 0;
-}
-
-#if 0
-int vfat_find(char *fname)
-{
-	struct dir_entry *de = NULL;
-
-	while (1) {
-		fat_get_entry(&de);
-		if (de->name[0] == 0xe5)
-			continue;
-		if (de->name[0] == 0x0)
-			break;
-		if (de->attr == 0x0f) {
-			fat_parse_long(&de);
+		if (dle->alias_checksum != checksum) {
+			printf("Checksum1 error!\n");
+			return -1;
 		}
 	}
+	fat_get_entry(addr, de);
+	if (fat_checksum((*de)->name) != checksum) {
+		printf("long name checksum error\n");
+		return -1;
+	}
+	if (fat_cmp_name(filename, search_name) == 0) {
+		fd_pool[fd].cluster = ((*de)->starthi << 16 | (*de)->start);
+		fd_pool[fd].size = (*de)->size;
+		printf("Found %s @ %d, %d bytes\n", filename, fd_pool[fd].cluster, (*de)->size);
+	}
+	return 0;
 }
-
-#endif
