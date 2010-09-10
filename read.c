@@ -78,7 +78,7 @@ void dump_file(int fd)
 	fclose(fp);
 }
 
-void search_dir(int fd, char *filename)
+void search_dir(int fd, char *filename, int search)
 {
 	struct address_space *addr = NULL;
 	struct dir_entry *dir = NULL;
@@ -90,25 +90,22 @@ void search_dir(int fd, char *filename)
 		  break;
 		if (dir->name[0] == 0xe5)	/* deleted file */
 		  continue;
-		if (memcmp(filename, dir->name, 11) == 0) {
-			fd_pool[fd].cluster = (dir->starthi << 16 | dir->start);
-			fd_pool[fd].size = dir->size;
-			printf("Found %s @ %d, %d bytes with short name\n", filename, fd_pool[fd].cluster, dir->size);
-			break;
+		if (search == 1) {
+			if (memcmp(filename, dir->name, 11) == 0) {
+				fd_pool[fd].cluster = (dir->starthi << 16 | dir->start);
+				fd_pool[fd].size = dir->size;
+				printf("Found %s @ %d, %d bytes with short name\n", filename, fd_pool[fd].cluster, dir->size);
+				break;
+			}
 		}
 		if (dir->attr == 0x0f) {	/* subcomponent long name */
-			ret = fat_parse_long(&addr, &dir, filename, fd);
-			if (ret == 1)
+			ret = fat_parse_long(&addr, &dir, filename, fd, search);
+			if (ret == 1 && search == 1)
 				break;
+		} else {
+			/* regular file */
+			printf("%s    %d bytes\n", dir->name, dir->size);
 		}
-
-		/* regular file */
-		/* no more need
-		printf("Name: %s\n", dir->name);
-		unsigned int clus = (dir->starthi << 16 | dir->start);
-		printf("Size: %d\n", dir->size);
-		printf("Data cluster: %d\n", clus);
-		*/
 	} while (fat_get_entry(&addr, &dir) == 0);
 	dosb.cur_dir_clus = 2;
 }
@@ -145,19 +142,41 @@ static void fmtfname(char *dst, char *filename)
                 *dst++ = *src++;
                 ++count;
         }
+	*dst = '\0';
 	file2upper(dstbuf);
+}
+
+inline void readdir()
+{
+	search_dir(0, NULL, 0);
+}
+
+static inline int is_short(char *filename)
+{
+	int len = strlen(filename);
+	char *ptr = filename;
+	if (len < 13) {
+		//還要判斷是否是長檔名
+		//比方說 a.update
+		while (*ptr++ != '.');
+		if (ptr - filename < 4)
+			return 0;
+		else
+			return 1;
+	}
+	return 0;
 }
 
 int file_open(char *filename)
 {
-	char dstfile[11];
+	char dstfile[12];
 	int fd = find_empty_fd();
-	if (strlen(filename) < 12) {
+	if (is_short(filename) == 1) { /* 12345678.123 */
 		memset((void*)&dstfile[0], 0x20, 11);
 		fmtfname(dstfile, filename);
-		search_dir(fd, dstfile);
+		search_dir(fd, dstfile, 1);
 	} else {
-		search_dir(fd, filename);
+		search_dir(fd, filename, 1);
 	}
 	return fd;
 }
@@ -180,6 +199,7 @@ int file_read(int fd, void *buf, unsigned int count)
         do {
                 direct_read(buf, next_clus);
                 count -= 4096;
+		buf += 4096;
                 next_clus = fat_next_cluster(next_clus);
         } while (count >= 4096 && next_clus != 0x0FFFFFFF);
 
@@ -189,11 +209,14 @@ int file_read(int fd, void *buf, unsigned int count)
 
 void test_func()
 {
-	char mybuf[4096];
-//	int fd = file_open("thisisalongname.gogo");
-//	int fd = file_open("a.txt");
-	int fd = file_open("B.TXT");
-	int ret = file_read(fd, mybuf, 10);
+	char *mybuf = malloc(19245);
+	if (mybuf == NULL) {
+		perror("malloc");
+	}
+	int fd = file_open("thisisalongname.gogo");
+//	int fd = file_open("a.txta");
+//	int fd = file_open("TiMe.C");
+	int ret = file_read(fd, mybuf, 19245);
 	FILE *fp = fopen("a.dat", "wb");
 	fwrite(mybuf, ret, 1, fp);
 	fclose(fp);

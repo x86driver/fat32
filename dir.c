@@ -44,8 +44,6 @@ void get_fat_info(unsigned int fat32_sec)
 {
 	direct_read_sector(buf_temp, fat32_sec);
         memcpy((void*)&fat, buf_temp, sizeof(fat));
-        printf("%s\n", fat.BS_OEMName);
-        printf("size: %d\n", fat.BPB_BytsPerSec);
 }
 
 void list_all_cluster(unsigned int first_clus)
@@ -100,8 +98,31 @@ int fat_get_entry(struct address_space **addr, struct dir_entry **de)
 
 static inline int fat_cmp_name(char *filename, char *search_name)
 {
-	for (; *search_name != 0; ++filename, ++search_name) {
-		if (*filename != *search_name)
+        char dstbuf[12];
+        char *dst = &dstbuf[0];
+        char *src = search_name;
+        int i;
+
+	if (strlen(search_name) < 12) { /* not include dot (.) */
+	        for (i = 0; i < 11; ++i) {
+        	        if (*src == ' ')
+                	        *dst++ = '.';
+	                while (*src == ' ') {
+        	                ++i;
+                	        ++src;
+	                }
+        	        *dst++ = charset2upper[(int)*src++];
+		}
+		dst = &dstbuf[0];
+        } else {
+		dst = search_name;
+	}
+
+	if (strlen(dst) != strlen(filename))
+		return -1;
+
+	for (; *filename != 0; ++filename, ++dst) {
+		if (charset2upper[(int)*filename] != charset2upper[(int)*dst])
 			return -1;
 	}
 	return 0;
@@ -112,7 +133,7 @@ static inline int fat_cmp_name(char *filename, char *search_name)
    1: parse ok, and we need
   -1: parse failed
 */
-int fat_parse_long(struct address_space **addr, struct dir_entry **de, char *search_name, int fd)
+int fat_parse_long(struct address_space **addr, struct dir_entry **de, char *search_name, int fd, int search)
 {
 	char filename[260];
 	unsigned char slot;
@@ -144,6 +165,10 @@ int fat_parse_long(struct address_space **addr, struct dir_entry **de, char *sea
 	if (fat_checksum((*de)->name) != checksum) {
 		printf("long name checksum error\n");
 		return -1;
+	}
+	if (search == 0) {
+		printf("%s, %d bytes\n", filename, (*de)->size);
+		return 0;
 	}
 	if (fat_cmp_name(filename, search_name) == 0) {
 		fd_pool[fd].cluster = ((*de)->starthi << 16 | (*de)->start);
