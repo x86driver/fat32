@@ -78,30 +78,11 @@ void dump_file(int fd)
 	fclose(fp);
 }
 
-void fmtfname(char *dst, const char *src)
-{
-	//format file name to 8 3 (DOS)
-	//WARNING: make sure 'dst' must allocated 11 bytes
-	// and filled with 0x20 (space)
-
-	int count = 0;
-	while (1) {
-        	if (*src == '.') {
-        		dst += 8-count;
-	        	++src;
-        		continue;
-        	} else if (*src == '\0')
-		  break;
-
-	        *dst++ = *src++;
-        	++count;
-	}
-}
-
 void search_dir(int fd, char *filename)
 {
 	struct address_space *addr = NULL;
 	struct dir_entry *dir = NULL;
+	int ret;
 
 	fat_get_entry(&addr, &dir);
 	do {
@@ -109,20 +90,27 @@ void search_dir(int fd, char *filename)
 		  break;
 		if (dir->name[0] == 0xe5)	/* deleted file */
 		  continue;
+		if (memcmp(filename, dir->name, 11) == 0) {
+			fd_pool[fd].cluster = (dir->starthi << 16 | dir->start);
+			fd_pool[fd].size = dir->size;
+			printf("Found %s @ %d, %d bytes with short name\n", filename, fd_pool[fd].cluster, dir->size);
+			break;
+		}
 		if (dir->attr == 0x0f) {	/* subcomponent long name */
-			if (fat_parse_long(&addr, &dir, filename, fd) != 0) {
-				printf("Parse long name failed!\n");
-			}
+			ret = fat_parse_long(&addr, &dir, filename, fd);
+			if (ret == 1)
+				break;
 		}
 
 		/* regular file */
+		/* no more need
 		printf("Name: %s\n", dir->name);
 		unsigned int clus = (dir->starthi << 16 | dir->start);
 		printf("Size: %d\n", dir->size);
 		printf("Data cluster: %d\n", clus);
+		*/
 	} while (fat_get_entry(&addr, &dir) == 0);
-
-//	printf("file count: %d\n", file_count);
+	dosb.cur_dir_clus = 2;
 }
 
 int find_empty_fd()
@@ -137,24 +125,78 @@ int find_empty_fd()
 	return -1;
 }
 
+static void fmtfname(char *dst, char *filename)
+{
+        //format file name to 8 3 (DOS)
+        //WARNING: make sure 'dst' must allocated 11 bytes
+        // and filled with 0x20 (space)
+	char *src = filename;
+	char *dstbuf = dst;
+
+        int count = 0;
+        while (1) {
+                if (*src == '.') {
+                        dst += 8-count;
+                        ++src;
+                        continue;
+                } else if (*src == '\0')
+                  break;
+
+                *dst++ = *src++;
+                ++count;
+        }
+	file2upper(dstbuf);
+}
+
 int file_open(char *filename)
 {
+	char dstfile[11];
 	int fd = find_empty_fd();
-	search_dir(fd, filename);
+	if (strlen(filename) < 12) {
+		memset((void*)&dstfile[0], 0x20, 11);
+		fmtfname(dstfile, filename);
+		search_dir(fd, dstfile);
+	} else {
+		search_dir(fd, filename);
+	}
 	return fd;
 }
 
-int file_read(int fd)
+int file_read(int fd, void *buf, unsigned int count)
 {
-	dump_file(fd);
-	return 0;
+        unsigned int next_clus = fd_pool[fd].cluster;
+        unsigned int size = (count > fd_pool[fd].size ? fd_pool[fd].size : count);
+
+	if (fd_pool[fd].pos < count)
+		fd_pool[fd].pos = size;
+	else
+		return 0;
+
+        if (size <= 4096) {
+                direct_read(buf, next_clus);
+                return fd_pool[fd].pos;
+        }
+
+        do {
+                direct_read(buf, next_clus);
+                count -= 4096;
+                next_clus = fat_next_cluster(next_clus);
+        } while (count >= 4096 && next_clus != 0x0FFFFFFF);
+
+        direct_read(buf, next_clus);
+	return fd_pool[fd].pos;
 }
 
 void test_func()
 {
-	int fd = file_open("thisisalongname.gogo");
-	file_read(fd);
-//	list_all_cluster(2);
+	char mybuf[4096];
+//	int fd = file_open("thisisalongname.gogo");
+//	int fd = file_open("a.txt");
+	int fd = file_open("B.TXT");
+	int ret = file_read(fd, mybuf, 10);
+	FILE *fp = fopen("a.dat", "wb");
+	fwrite(mybuf, ret, 1, fp);
+	fclose(fp);
 }
 
 int main()

@@ -64,6 +64,7 @@ struct dir_long_entry {
 struct inode {
 	unsigned int cluster;
 	unsigned int size;
+	unsigned int pos;
 };
 
 struct Partition {

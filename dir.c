@@ -88,8 +88,11 @@ int __fat_get_entry_slow(struct address_space **addr, struct dir_entry **de)
 
 int fat_get_entry(struct address_space **addr, struct dir_entry **de)
 {
-	if (*addr && *de && (*de - (struct dir_entry*)(*addr)->data) < 4096) {
+	static int count = 0;
+	if (*addr && *de &&
+		(*de - (struct dir_entry*)(*addr)->data) < (4096 / sizeof(struct dir_entry)) - 1) {
 		(*de)++;
+		++count;
 		return 0;
 	}
 	return __fat_get_entry_slow(addr, de);
@@ -104,6 +107,11 @@ static inline int fat_cmp_name(char *filename, char *search_name)
 	return 0;
 }
 
+/* return:
+   0: parse ok, but we don't need
+   1: parse ok, and we need
+  -1: parse failed
+*/
 int fat_parse_long(struct address_space **addr, struct dir_entry **de, char *search_name, int fd)
 {
 	char filename[260];
@@ -141,6 +149,7 @@ int fat_parse_long(struct address_space **addr, struct dir_entry **de, char *sea
 		fd_pool[fd].cluster = ((*de)->starthi << 16 | (*de)->start);
 		fd_pool[fd].size = (*de)->size;
 		printf("Found %s @ %d, %d bytes\n", filename, fd_pool[fd].cluster, (*de)->size);
+		return 1;
 	}
 	return 0;
 }
