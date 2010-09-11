@@ -63,6 +63,7 @@ struct dir_long_entry {
 
 struct inode {
 	unsigned int cluster;
+	unsigned int cur_clus;
 	unsigned int size;
 	unsigned int pos;
 };
@@ -98,6 +99,8 @@ static inline unsigned int fat_get_sec(unsigned int cluster)
 }
 
 unsigned int fat_next_cluster(unsigned int currentry);
+void fmtfname(char *dst, char *filename);
+int is_short(char *filename);
 
 static inline void namecpy(char *dst, const unsigned char *src, int len)
 {

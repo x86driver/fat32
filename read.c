@@ -92,7 +92,7 @@ void search_dir(int fd, char *filename, int search)
 		  continue;
 		if (search == 1) {
 			if (memcmp(filename, dir->name, 11) == 0) {
-				fd_pool[fd].cluster = (dir->starthi << 16 | dir->start);
+				fd_pool[fd].cur_clus = fd_pool[fd].cluster = (dir->starthi << 16 | dir->start);
 				fd_pool[fd].size = dir->size;
 				printf("Found %s @ %d, %d bytes with short name\n", filename, fd_pool[fd].cluster, dir->size);
 				break;
@@ -102,7 +102,7 @@ void search_dir(int fd, char *filename, int search)
 			ret = fat_parse_long(&addr, &dir, filename, fd, search);
 			if (ret == 1 && search == 1)
 				break;
-		} else {
+		} else if (search == 0) {
 			/* regular file */
 			printf("%s    %d bytes\n", dir->name, dir->size);
 		}
@@ -122,7 +122,7 @@ int find_empty_fd()
 	return -1;
 }
 
-static void fmtfname(char *dst, char *filename)
+void fmtfname(char *dst, char *filename)
 {
         //format file name to 8 3 (DOS)
         //WARNING: make sure 'dst' must allocated 11 bytes
@@ -151,18 +151,21 @@ inline void readdir()
 	search_dir(0, NULL, 0);
 }
 
-static inline int is_short(char *filename)
+int is_short(char *filename)
 {
 	int len = strlen(filename);
 	char *ptr = filename;
-	if (len < 13) {
-		//還要判斷是否是長檔名
-		//比方說 a.update
-		while (*ptr++ != '.');
-		if (ptr - filename < 4)
-			return 0;
-		else
+	if (len == 12) {
+		if (filename[8] == '.')
 			return 1;
+		if (filename[9] == '.' || filename[10] == '.')
+			return 0;
+	} else if (len < 12) {
+		while (*ptr++ != '.');
+		if (ptr - filename < 10 && ((filename + len) - ptr) < 4)
+			return 1;
+		else
+			return 0;
 	}
 	return 0;
 }
@@ -181,44 +184,175 @@ int file_open(char *filename)
 	return fd;
 }
 
-int file_read(int fd, void *buf, unsigned int count)
+int file_read2(int fd, void *buf, unsigned int count)
 {
-        unsigned int next_clus = fd_pool[fd].cluster;
-        unsigned int size = (count > fd_pool[fd].size ? fd_pool[fd].size : count);
+//        unsigned int next_clus = fd_pool[fd].cluster;
+        unsigned int size = 0;
+	unsigned int read_count = 0;
+	unsigned int remain = 0;
+	struct address_space *addr;
 
-	if (fd_pool[fd].pos < count)
-		fd_pool[fd].pos = size;
+	if (count > (fd_pool[fd].size - fd_pool[fd].pos))
+		size = fd_pool[fd].size - fd_pool[fd].pos;
 	else
+		size = count;
+
+	if (fd_pool[fd].pos >= fd_pool[fd].size)
 		return 0;
 
-        if (size <= 4096) {
-                direct_read(buf, next_clus);
-                return fd_pool[fd].pos;
+	//判斷是否該 cluster 未讀完
+	//這裡應該要判斷, 這次的 read 是否剛好讀到 4096 邊界
+	//如果是, 才需要呼叫 fat_next_cluster
+	//如果不是, 就要保留 cur_clus
+	//同時還要判斷, 這次的 read 大小是多少, 目前都沒有判斷!!
+	if ((fd_pool[fd].pos & 4095) != 0) {
+		remain = ((fd_pool[fd].pos / 4096) + 1) * 4096;
+		remain -= fd_pool[fd].pos;
+		addr = bread_cluster(fd_pool[fd].cur_clus);
+		memcpy(buf, addr->data + fd_pool[fd].pos, remain);
+		buf += remain;
+//		fd_pool[fd].cur_clus = fat_next_cluster(fd_pool[fd].cur_clus);
+		fd_pool[fd].pos += remain;
+		size -= remain;
+		read_count += remain;
+		if (size == 0)
+			return read_count;
+	}
+
+        if (size < 4096) {
+		addr = bread_cluster(fd_pool[fd].cur_clus);
+		memcpy(buf, addr->data, size);
+		read_count += size;
+		fd_pool[fd].pos += read_count;
+                return read_count;
         }
 
         do {
-                direct_read(buf, next_clus);
-                count -= 4096;
+                direct_read(buf, fd_pool[fd].cur_clus);
+                size -= 4096;
 		buf += 4096;
-                next_clus = fat_next_cluster(next_clus);
-        } while (count >= 4096 && next_clus != 0x0FFFFFFF);
+		read_count += 4096;
+                fd_pool[fd].cur_clus = fat_next_cluster(fd_pool[fd].cur_clus);
+        } while (size >= 4096 && fd_pool[fd].cur_clus != 0x0FFFFFFF);
 
-        direct_read(buf, next_clus);
-	return fd_pool[fd].pos;
+	if (size > 0) {
+		addr = bread_cluster(fd_pool[fd].cur_clus);
+		memcpy(buf, addr->data, size);
+		read_count += size;
+	}
+	fd_pool[fd].pos = read_count;
+	return read_count;
+}
+
+int _file_align_read(int fd, void *buf, unsigned int count)
+{
+	struct address_space *addr;
+	unsigned int read_count = 0;
+
+	if (fd_pool[fd].pos == fd_pool[fd].size)
+		return 0;
+
+	if ((count + fd_pool[fd].pos) > fd_pool[fd].size) {
+		count = fd_pool[fd].size - fd_pool[fd].pos;
+	}
+
+	if (count < 4096) {
+		addr = bread_cluster(fd_pool[fd].cur_clus);
+		memcpy(buf, addr->data, count);
+		fd_pool[fd].pos += count;
+		return count;
+	} else if (count == 4096) {
+			direct_read(buf, fd_pool[fd].cur_clus);
+			fd_pool[fd].pos += 4096;
+			fd_pool[fd].cur_clus = fat_next_cluster(fd_pool[fd].cur_clus);
+			return 4096;
+	} else { // > 4096
+		do {
+			direct_read(buf, fd_pool[fd].cur_clus);
+			count -= 4096;
+			read_count += 4096;
+			buf += 4096;
+			fd_pool[fd].cur_clus = fat_next_cluster(fd_pool[fd].cur_clus);
+		} while (count >= 4096 && fd_pool[fd].cur_clus != 0x0FFFFFFF);
+		addr = bread_cluster(fd_pool[fd].cur_clus);
+		memcpy(buf, addr->data, count);
+		read_count += count;
+		fd_pool[fd].pos += read_count;
+		return read_count;
+	}
+}
+
+int _file_normal_read(int fd, void *buf, unsigned int count)
+{
+	struct address_space *addr;
+	unsigned int distance, remain, file_len;
+
+	if (fd_pool[fd].pos == fd_pool[fd].size)
+		return 0;
+
+	distance = (fd_pool[fd].pos / 4096) * 4096;
+	distance = fd_pool[fd].pos - distance;
+	remain = ((fd_pool[fd].pos / 4096) + 1) * 4096;
+	remain -= fd_pool[fd].pos;
+	file_len = fd_pool[fd].size - fd_pool[fd].pos;
+
+	count = (count > file_len ? file_len : count);
+
+	if (count <= remain) {
+		addr = bread_cluster(fd_pool[fd].cur_clus);
+		memcpy(buf, addr->data + distance, count);
+		fd_pool[fd].pos += count;
+		if (count == remain)
+			fd_pool[fd].cur_clus = fat_next_cluster(fd_pool[fd].cur_clus);
+		return count;
+	} else {
+		addr = bread_cluster(fd_pool[fd].cur_clus);
+		memcpy(buf, addr->data + distance, remain);
+		buf += remain;
+		count -= remain;
+		fd_pool[fd].pos += remain;
+		fd_pool[fd].cur_clus = fat_next_cluster(fd_pool[fd].cur_clus);
+		return remain + _file_align_read(fd, buf, count);
+	}
+
+}
+
+int file_read(int fd, void *buf, unsigned int count)
+{
+	if (fd_pool[fd].pos == 0 || (fd_pool[fd].pos & 4095) == 0) {
+		return _file_align_read(fd, buf, count);
+	} else {
+		return _file_normal_read(fd, buf, count);
+	}
+}
+
+void write_file(int fd, char *mybuf, FILE *fp, unsigned int *size, int count)
+{
+	int ret, i = 0;
+	for (; i < count; ++i) {
+        	ret = file_read(fd, mybuf, *size++);
+	        fwrite(mybuf, ret, 1, fp);
+	}
 }
 
 void test_func()
 {
-	char *mybuf = malloc(19245);
-	if (mybuf == NULL) {
+	char *mybuf = malloc(65536);
+	if (mybuf == NULL)
 		perror("malloc");
-	}
-	int fd = file_open("thisisalongname.gogo");
+//	int fd = file_open("thisisalongname.gogo");
 //	int fd = file_open("a.txta");
-//	int fd = file_open("TiMe.C");
-	int ret = file_read(fd, mybuf, 19245);
+//	int fd = file_open("a.txt");
+//	int fd = file_open("acct.C");
+	int fd = file_open("TiMe.c");
+//	int fd = file_open("inc1.txt");
+//	int fd = file_open("8192.txt");
+
+	unsigned int size_array[] = {16384, 2862};
 	FILE *fp = fopen("a.dat", "wb");
-	fwrite(mybuf, ret, 1, fp);
+
+	write_file(fd, mybuf, fp, size_array, sizeof(size_array)/sizeof(unsigned int));
+
 	fclose(fp);
 }
 

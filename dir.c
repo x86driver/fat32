@@ -103,7 +103,11 @@ static inline int fat_cmp_name(char *filename, char *search_name)
         char *src = search_name;
         int i;
 
-	if (strlen(search_name) < 12) { /* not include dot (.) */
+	if (is_short(filename) && is_short(search_name)) {	/* short name */
+		return memcmp(filename, search_name, 11);
+	}
+#if 0
+	} else if (strlen(search_name) < 12) { /* not include dot (.), long name */
 	        for (i = 0; i < 11; ++i) {
         	        if (*src == ' ')
                 	        *dst++ = '.';
@@ -125,7 +129,11 @@ static inline int fat_cmp_name(char *filename, char *search_name)
 		if (charset2upper[(int)*filename] != charset2upper[(int)*dst])
 			return -1;
 	}
-	return 0;
+#endif
+
+	if (strlen(filename) != strlen(search_name))
+		return -1;
+	return memcmp(filename, search_name, strlen(filename));
 }
 
 /* return:
@@ -170,8 +178,14 @@ int fat_parse_long(struct address_space **addr, struct dir_entry **de, char *sea
 		printf("%s, %d bytes\n", filename, (*de)->size);
 		return 0;
 	}
+	if (is_short(filename)) {
+		char dstfile[12];
+		memset((void*)&dstfile[0], 0x20, sizeof(dstfile));
+		fmtfname(dstfile, filename);
+		memcpy(filename, dstfile, 12);
+	}
 	if (fat_cmp_name(filename, search_name) == 0) {
-		fd_pool[fd].cluster = ((*de)->starthi << 16 | (*de)->start);
+		fd_pool[fd].cur_clus = fd_pool[fd].cluster = ((*de)->starthi << 16 | (*de)->start);
 		fd_pool[fd].size = (*de)->size;
 		printf("Found %s @ %d, %d bytes\n", filename, fd_pool[fd].cluster, (*de)->size);
 		return 1;
