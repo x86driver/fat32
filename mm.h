@@ -19,10 +19,6 @@ void init_address_space();
 struct radix_tree *alloc_radix_tree();
 void init_radix_allocator();
 
-/* alloc_page 分配一個新的頁面給 address_space
- * 先假設 address_space 一開始就先 malloc() 一大塊給他
- */
-
 static inline struct address_space *alloc_address_space()
 {
 	BUG_ON(address_space_index >= CACHE_ENTRY);

@@ -3,8 +3,7 @@
 #include "page.h"
 #include "buffer.h"
 #include "mm.h"
-#include <string.h>
-#include <stdio.h>
+#include "lib.h"
 
 struct msdos_sb dosb;
 
@@ -13,8 +12,6 @@ unsigned char *read_sec(unsigned int sector);
 
 static char buf_temp[4096];
 
-//改成用 direct_read
-//因為不需要 buffer 起來
 static inline unsigned int find_first_partition()
 {
 	direct_read_sector(buf_temp, 0);
@@ -59,19 +56,9 @@ void list_all_cluster(unsigned int first_clus)
 
 unsigned int fat_next_cluster(unsigned int currentry)
 {
-        /* 流程:
-         * 1. 取得 currentry 所在的 cluster
-         * 2. 找到下一個 entry
-         * ☯注意： 這裡不論如何只需要讀取一次 cluster,
-         *         不需要讀取下一個 cluster, 因為我們只是把找到的
-         *         cluster 回傳就好
-         * 『注意』： 目前尚未完成這個函式, 因為要用 bread 去讀
-         */
 	struct address_space *addr = bread_sector(dosb.first_fat_sec + ((currentry * 4) / SECTOR_SIZE));
 	unsigned char *ptr = (unsigned char*)addr->data;
 	return *(unsigned int*)((ptr + ((currentry * 4) & (SECTOR_SIZE - 1))));
-//        unsigned int cluster = *(unsigned int*)(buf + (dosb.first_fat_sec * SECTOR_SIZE + currentry * 4));
-//        return cluster;
 }
 
 int __fat_get_entry_slow(struct address_space **addr, struct dir_entry **de)
@@ -98,38 +85,9 @@ int fat_get_entry(struct address_space **addr, struct dir_entry **de)
 
 static inline int fat_cmp_name(char *filename, char *search_name)
 {
-        char dstbuf[12];
-        char *dst = &dstbuf[0];
-        char *src = search_name;
-        int i;
-
 	if (is_short(filename) && is_short(search_name)) {	/* short name */
 		return memcmp(filename, search_name, 11);
 	}
-#if 0
-	} else if (strlen(search_name) < 12) { /* not include dot (.), long name */
-	        for (i = 0; i < 11; ++i) {
-        	        if (*src == ' ')
-                	        *dst++ = '.';
-	                while (*src == ' ') {
-        	                ++i;
-                	        ++src;
-	                }
-        	        *dst++ = charset2upper[(int)*src++];
-		}
-		dst = &dstbuf[0];
-        } else {
-		dst = search_name;
-	}
-
-	if (strlen(dst) != strlen(filename))
-		return -1;
-
-	for (; *filename != 0; ++filename, ++dst) {
-		if (charset2upper[(int)*filename] != charset2upper[(int)*dst])
-			return -1;
-	}
-#endif
 
 	if (strlen(filename) != strlen(search_name))
 		return -1;
@@ -153,7 +111,7 @@ int fat_parse_long(struct address_space **addr, struct dir_entry **de, char *sea
 	}
 
 	slot = dle->id & ~0x40;
-	/* 開始 parse 直到 id = 1 */
+	filename[slot*13] = '\0';
 	while (1) {
 		--slot;
 		namecpy(filename + slot * 13, dle->name0_4, 5);

@@ -12,7 +12,6 @@ unsigned int radix_buffer_cur_max;
 
 void init_address_space()
 {
-	//數量是128*128 = 16384
         address_space_array = (struct address_space*)page_malloc(CACHE_ENTRY * sizeof(struct address_space));
         address_space_index = 0;
 }
@@ -39,7 +38,7 @@ struct radix_tree *alloc_radix_tree()
 }
 
 #if 0
-int main()
+int test_radix_main()
 {
 	init_radix_allocator();
 	int i;

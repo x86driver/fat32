@@ -1,17 +1,10 @@
-#include <stdio.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
 #include "fat32.h"
 #include "superblock.h"
 #include "buffer.h"
 #include "page.h"
 #include "mm.h"
 #include "dir.h"
+#include "lib.h"
 
 #ifdef DEBUG_MEMORY_USAGE
 extern unsigned int memory_usage;
@@ -19,39 +12,6 @@ extern unsigned int memory_usage;
 
 struct FAT32 fat;
 
-#if 0
-/* Usage:
- * buf = read_sec(xxx);
- * Beware size of buf is 512
- */
-unsigned char *read_sec(unsigned int sector)
-{
-	memset(cache, 0, 4096);
-	unsigned char *ptr = buf + sector * SECTOR_SIZE;
-	memcpy(cache512, ptr, 512);
-	return cache512;
-}
-
-/* Usage:
- * buf = read_clus(xxx);
- */
-unsigned char *read_clus(unsigned int clus)
-{
-        unsigned int sector = fat_get_sec(clus);
-        unsigned char *ptr = buf + sector * SECTOR_SIZE;
-        memcpy(cache, ptr, 4096);
-	return cache;
-}
-
-void read_content(unsigned int clus)
-{
-	unsigned int sector = fat_get_sec(clus);
-	unsigned char *text = buf+sector*SECTOR_SIZE;
-	printf("%s", text);
-}
-#endif
-
-//void dump_file(unsigned int first_clus, unsigned int size)
 void dump_file(int fd)
 {
 	FILE *fp = fopen("e.dat", "wb");
@@ -146,7 +106,7 @@ void fmtfname(char *dst, char *filename)
 	file2upper(dstbuf);
 }
 
-inline void readdir()
+void readdir()
 {
 	search_dir(0, NULL, 0);
 }
@@ -182,66 +142,6 @@ int file_open(char *filename)
 		search_dir(fd, filename, 1);
 	}
 	return fd;
-}
-
-int file_read2(int fd, void *buf, unsigned int count)
-{
-//        unsigned int next_clus = fd_pool[fd].cluster;
-        unsigned int size = 0;
-	unsigned int read_count = 0;
-	unsigned int remain = 0;
-	struct address_space *addr;
-
-	if (count > (fd_pool[fd].size - fd_pool[fd].pos))
-		size = fd_pool[fd].size - fd_pool[fd].pos;
-	else
-		size = count;
-
-	if (fd_pool[fd].pos >= fd_pool[fd].size)
-		return 0;
-
-	//判斷是否該 cluster 未讀完
-	//這裡應該要判斷, 這次的 read 是否剛好讀到 4096 邊界
-	//如果是, 才需要呼叫 fat_next_cluster
-	//如果不是, 就要保留 cur_clus
-	//同時還要判斷, 這次的 read 大小是多少, 目前都沒有判斷!!
-	if ((fd_pool[fd].pos & 4095) != 0) {
-		remain = ((fd_pool[fd].pos / 4096) + 1) * 4096;
-		remain -= fd_pool[fd].pos;
-		addr = bread_cluster(fd_pool[fd].cur_clus);
-		memcpy(buf, addr->data + fd_pool[fd].pos, remain);
-		buf += remain;
-//		fd_pool[fd].cur_clus = fat_next_cluster(fd_pool[fd].cur_clus);
-		fd_pool[fd].pos += remain;
-		size -= remain;
-		read_count += remain;
-		if (size == 0)
-			return read_count;
-	}
-
-        if (size < 4096) {
-		addr = bread_cluster(fd_pool[fd].cur_clus);
-		memcpy(buf, addr->data, size);
-		read_count += size;
-		fd_pool[fd].pos += read_count;
-                return read_count;
-        }
-
-        do {
-                direct_read(buf, fd_pool[fd].cur_clus);
-                size -= 4096;
-		buf += 4096;
-		read_count += 4096;
-                fd_pool[fd].cur_clus = fat_next_cluster(fd_pool[fd].cur_clus);
-        } while (size >= 4096 && fd_pool[fd].cur_clus != 0x0FFFFFFF);
-
-	if (size > 0) {
-		addr = bread_cluster(fd_pool[fd].cur_clus);
-		memcpy(buf, addr->data, size);
-		read_count += size;
-	}
-	fd_pool[fd].pos = read_count;
-	return read_count;
 }
 
 int _file_align_read(int fd, void *buf, unsigned int count)
@@ -344,9 +244,12 @@ void test_func()
 //	int fd = file_open("a.txta");
 //	int fd = file_open("a.txt");
 //	int fd = file_open("acct.C");
-	int fd = file_open("TiMe.c");
+//	int fd = file_open("TiMe.c");
 //	int fd = file_open("inc1.txt");
 //	int fd = file_open("8192.txt");
+//	int fd = file_open("123456789.abcde");
+//	int fd = file_open("Thisisa_longfile.mydata.ok");
+	int fd = file_open("b.txt");
 
 	unsigned int size_array[] = {16384, 2862};
 	FILE *fp = fopen("a.dat", "wb");
@@ -360,47 +263,10 @@ int main()
 {
 	init_all();
 	test_func();
+//	readdir();
 #ifdef DEBUG_MEMORY_USAGE
 	printf("\nMemory usage: %d\n", memory_usage);
 #endif
 
 	return 0;
 }
-
-#if 0
-int main()
-{
-	int fd = open("fat32.img", O_RDONLY);
-	if (fd == -1) {
-		perror("open");
-		exit(1);
-	}
-	struct stat st;
-	fstat(fd, &st);
-
-	sb = (struct super_block*)malloc(sizeof(struct super_block));
-	init_superblock();
-
-	cache = malloc(4096);
-	cache512 = malloc(512);
-
-	buf = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
-	if ((char*)buf == MAP_FAILED) {
-		perror("mmap");
-		exit(1);
-	}
-
-	init_fat();
-	test_func();
-
-	free(cache);
-	free(cache512);
-	free(sb);
-
-	munmap(buf, st.st_size);
-	close(fd);
-
-	return 0;
-}
-
-#endif
