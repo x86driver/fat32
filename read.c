@@ -249,14 +249,19 @@ void test_func()
 //	int fd = file_open("8192.txt");
 //	int fd = file_open("123456789.abcde");
 //	int fd = file_open("Thisisa_longfile.mydata.ok");
-	int fd = file_open("b.txt");
+	int fd = file_open("a.txt");
 
-	unsigned int size_array[] = {16384, 2862};
-	FILE *fp = fopen("a.dat", "wb");
+	char tempbuf[17];
 
-	write_file(fd, mybuf, fp, size_array, sizeof(size_array)/sizeof(unsigned int));
+//	unsigned int size_array[] = {16384, 2862};
+//	FILE *fp = fopen("a.dat", "wb");
 
-	fclose(fp);
+//	write_file(fd, mybuf, fp, size_array, sizeof(size_array)/sizeof(unsigned int));
+
+//	fclose(fp);
+	file_read(fd, tempbuf, 16);
+	tempbuf[16] = '\0';
+	printf("%s\n", tempbuf);
 }
 
 int main()

@@ -20,6 +20,7 @@ void init_radix_allocator()
 {
 	radix_buffer[0] =
 		any_malloc(RADIX_SIZE_LV2 * sizeof(struct radix_tree) / RADIX_THRESHOLD);
+	memset(radix_buffer[0], 0, RADIX_SIZE_LV2 * sizeof(struct radix_tree) / RADIX_THRESHOLD);
 	radix_buffer_index = 0;
 	radix_buffer_array_index = 0;
 	radix_buffer_cur_max = RADIX_SIZE_LV2 / RADIX_THRESHOLD;
