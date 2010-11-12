@@ -32,6 +32,7 @@ struct radix_tree *alloc_radix_tree()
 		BUG_ON(radix_buffer_array_index >= RADIX_THRESHOLD - 1);
 		radix_buffer[++radix_buffer_array_index] =
 			any_malloc(RADIX_SIZE_LV2 * sizeof(struct radix_tree) / RADIX_THRESHOLD);
+		memset(radix_buffer[radix_buffer_array_index], 0, RADIX_SIZE_LV2 * sizeof(struct radix_tree) / RADIX_THRESHOLD);
 		radix_buffer_cur_max = RADIX_SIZE_LV2 / RADIX_THRESHOLD;
 		radix_buffer_index = 0;
 	}

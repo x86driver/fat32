@@ -59,14 +59,14 @@ struct dir_long_entry {
         unsigned char    name5_10[12];   /* 6 more characters in name */
         unsigned short   start;         /* starting cluster number, 0 in long slots */
         unsigned char    name11_12[4];   /* last 2 characters in name */
-};
+} __attribute__((packed));;
 
 struct inode {
 	unsigned int cluster;
 	unsigned int cur_clus;
 	unsigned int size;
 	unsigned int pos;
-};
+} __attribute__((packed));;
 
 struct Partition {
         unsigned char status;
@@ -79,7 +79,7 @@ struct Partition {
         unsigned char endcylinder;
         unsigned int startlba;
         unsigned int totalsec;
-};
+} __attribute__((packed));;
 
 struct msdos_sb {
 	unsigned int sec_per_clus;
@@ -87,7 +87,7 @@ struct msdos_sb {
 	unsigned int first_fat_sec;
 	unsigned int first_data_sec;
 	unsigned int cur_dir_clus;
-};
+} __attribute__((packed));;
 
 extern struct FAT32 fat;
 extern unsigned int fat_table;
