@@ -10,7 +10,8 @@ struct msdos_sb dosb;
 void get_fat_info(unsigned int fat32_sec);
 unsigned char *read_sec(unsigned int sector);
 
-static char buf_temp[4096];
+static char buf_temp[65536];
+unsigned int cluster_size = 4096;
 
 static inline unsigned int find_first_partition()
 {
@@ -35,6 +36,7 @@ void init_fat()
         dosb.first_data_sec = fat.BPB_ResvdSecCnt+(fat.BPB_NumFATs * FATSz) + dosb.root_sec;
 	dosb.sec_per_clus = fat.BPB_SecPerClus;
 	dosb.cur_dir_clus = 2;
+	cluster_size = dosb.sec_per_clus * 512;
 }
 
 void get_fat_info(unsigned int fat32_sec)
@@ -75,7 +77,7 @@ int fat_get_entry(struct address_space **addr, struct dir_entry **de)
 {
 	static int count = 0;
 	if (*addr && *de &&
-		(*de - (struct dir_entry*)(*addr)->data) < (4096 / sizeof(struct dir_entry)) - 1) {
+		(*de - (struct dir_entry*)(*addr)->data) < (cluster_size / sizeof(struct dir_entry)) - 1) {
 		(*de)++;
 		++count;
 		return 0;

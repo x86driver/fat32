@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include "dir.h"
 
 #ifdef DEBUG_MEMORY_USAGE
 extern unsigned int memory_usage;
@@ -30,7 +31,7 @@ static inline void *any_malloc(size_t size)
 
 static inline void *alloc_page()
 {
-	return page_malloc(4096);
+	return page_malloc(cluster_size);
 }
 
 #endif

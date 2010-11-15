@@ -44,12 +44,12 @@ int test_radix_main()
 {
 	init_radix_allocator();
 	int i;
-	struct radix_tree *ra[4096];
-	for (i = 0; i < 4096; ++i) {
+	struct radix_tree *ra[cluster_size];
+	for (i = 0; i < cluster_size; ++i) {
 		ra[i] = alloc_radix_tree();
 		ra[i]->next[0] = i;
 	}
-	for (i = 0; i < 4096; ++i) {
+	for (i = 0; i < cluster_size; ++i) {
 		printf("%d\n", ra[i]->next[0]);
 	}
 	return 0;

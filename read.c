@@ -19,7 +19,7 @@ void dump_file(int fd)
 	unsigned int size = fd_pool[fd].size;
 	unsigned char *ptr = alloc_page();
 
-        if (size <= 4096) {
+        if (size <= cluster_size) {
 		direct_read(ptr, next_clus);
                 fwrite(ptr, size, 1, fp);
 		fclose(fp);
@@ -28,10 +28,10 @@ void dump_file(int fd)
 
 	do {
 		direct_read(ptr, next_clus);
-		fwrite(ptr, 4096, 1, fp);
-		size -= 4096;
+		fwrite(ptr, cluster_size, 1, fp);
+		size -= cluster_size;
 		next_clus = fat_next_cluster(next_clus);
-	} while (size >=4096 && next_clus != 0x0FFFFFFF);
+	} while (size >=cluster_size && next_clus != 0x0FFFFFFF);
 
 	direct_read(ptr, next_clus);
 	fwrite(ptr, size, 1, fp);
@@ -156,24 +156,24 @@ int _file_align_read(int fd, void *buf, unsigned int count)
 		count = fd_pool[fd].size - fd_pool[fd].pos;
 	}
 
-	if (count < 4096) {
+	if (count < cluster_size) {
 		addr = bread_cluster(fd_pool[fd].cur_clus);
 		memcpy(buf, addr->data, count);
 		fd_pool[fd].pos += count;
 		return count;
-	} else if (count == 4096) {
+	} else if (count == cluster_size) {
 			direct_read(buf, fd_pool[fd].cur_clus);
-			fd_pool[fd].pos += 4096;
+			fd_pool[fd].pos += cluster_size;
 			fd_pool[fd].cur_clus = fat_next_cluster(fd_pool[fd].cur_clus);
-			return 4096;
-	} else { // > 4096
+			return cluster_size;
+	} else { // > cluster_size
 		do {
 			direct_read(buf, fd_pool[fd].cur_clus);
-			count -= 4096;
-			read_count += 4096;
-			buf += 4096;
+			count -= cluster_size;
+			read_count += cluster_size;
+			buf += cluster_size;
 			fd_pool[fd].cur_clus = fat_next_cluster(fd_pool[fd].cur_clus);
-		} while (count >= 4096 && fd_pool[fd].cur_clus != 0x0FFFFFFF);
+		} while (count >= cluster_size && fd_pool[fd].cur_clus != 0x0FFFFFFF);
 		addr = bread_cluster(fd_pool[fd].cur_clus);
 		memcpy(buf, addr->data, count);
 		read_count += count;
@@ -190,9 +190,9 @@ int _file_normal_read(int fd, void *buf, unsigned int count)
 	if (fd_pool[fd].pos == fd_pool[fd].size)
 		return 0;
 
-	distance = (fd_pool[fd].pos / 4096) * 4096;
+	distance = (fd_pool[fd].pos / cluster_size) * cluster_size;
 	distance = fd_pool[fd].pos - distance;
-	remain = ((fd_pool[fd].pos / 4096) + 1) * 4096;
+	remain = ((fd_pool[fd].pos / cluster_size) + 1) * cluster_size;
 	remain -= fd_pool[fd].pos;
 	file_len = fd_pool[fd].size - fd_pool[fd].pos;
 
@@ -235,9 +235,10 @@ void write_file(int fd, char *mybuf, FILE *fp, unsigned int *size, int count)
 	}
 }
 
+#define FILE_SIZE 5586944
 void test_func()
 {
-	char *mybuf = malloc(65536);
+	char *mybuf = malloc(FILE_SIZE);
 	if (mybuf == NULL)
 		perror("malloc");
 //	int fd = file_open("thisisalongname.gogo");
@@ -249,9 +250,7 @@ void test_func()
 //	int fd = file_open("8192.txt");
 //	int fd = file_open("123456789.abcde");
 //	int fd = file_open("Thisisa_longfile.mydata.ok");
-	int fd = file_open("a.txt");
-
-	char tempbuf[17];
+	int fd = file_open("B126600.rec");
 
 //	unsigned int size_array[] = {16384, 2862};
 //	FILE *fp = fopen("a.dat", "wb");
@@ -259,9 +258,12 @@ void test_func()
 //	write_file(fd, mybuf, fp, size_array, sizeof(size_array)/sizeof(unsigned int));
 
 //	fclose(fp);
-	file_read(fd, tempbuf, 16);
-	tempbuf[16] = '\0';
-	printf("%s\n", tempbuf);
+	file_read(fd, mybuf, FILE_SIZE);
+	FILE *fp = fopen("a.bin", "wb");
+	if (!fp)
+		perror("fopen");
+	fwrite(mybuf, FILE_SIZE, 1, fp);
+	fclose(fp);
 }
 
 int main()
